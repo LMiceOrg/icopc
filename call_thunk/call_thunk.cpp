@@ -84,15 +84,15 @@ struct thunk_code
 
 		move_stack(short offset, int direction, size_t size)
 		{
-			sub_esp = 0xEC83;
+			sub_esp = (short)0xEC83;
 			_inc_size = (char)sizeof(intptr_t);
 			_dest_offset = (offset + 3) * sizeof(intptr_t);
 			memcpy(backup, "\x51\x57\x56\xFC", 4);
 			memcpy(set_esi, "\x8D\x74\x24", sizeof(set_esi));
 			memcpy(set_edi, "\x8D\x7C\x24", sizeof(set_edi));
-			set_count = 0xB9;
+			set_count = (char)0xB9;
 			_count = size / sizeof(intptr_t);
-			movs = 0xA5F3;
+			movs = (short)0xA5F3;
 			memcpy(restore, "\xFC\x5E\x5F\x59", 4);
 			if (direction < 0)
 			{

@@ -7,10 +7,14 @@
 
 #include "maindlg.h"
 
+#include "config.h"
+
+
 LRESULT CMainDlg::OnInitDialog(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/)
 {
 	// center the dialog on the screen
 	CenterWindow();
+
 
 	// set icons
 	HICON hIcon = (HICON)::LoadImage(_Module.GetResourceInstance(), MAKEINTRESOURCE(IDR_MAINFRAME), 
@@ -20,11 +24,45 @@ LRESULT CMainDlg::OnInitDialog(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam
 		IMAGE_ICON, ::GetSystemMetrics(SM_CXSMICON), ::GetSystemMetrics(SM_CYSMICON), LR_DEFAULTCOLOR);
 	SetIcon(hIconSmall, FALSE);
 
+    // First DDX call, hooks up variables to controls.
+    DoDataExchange(false);
+
     m_opc = new ic_opcdaclient();
+
+    SetTimer(1,1000);
 
     
 
 	return TRUE;
+}
+
+LRESULT CMainDlg::OnTimer(UINT_PTR id){
+    if(id == 1){
+        CString cs;
+        const std::vector<opc_item>* items = m_opc->items();
+        if(items->size()>0) {
+            
+            char buf[512];
+            memset(buf, 0, sizeof(buf));
+            const opc_item& item = items->at(0);
+            CComVariant value = items->at(0).value;
+            value.ChangeType(VT_R8);
+            sprintf(buf, "%d. name: %s value: %lf", id, item.name, value.dblVal);
+
+            
+            //memset(cs.GetBufferSetLength(512), 0, sizeof(wchar_t)*512);
+
+            
+            MultiByteToWideChar(CP_ACP, 0, buf, strlen(buf)+1, cs.GetBufferSetLength(512), 512);
+            cs.ReleaseBuffer();
+            //wsprintf(buff+wcslen(buff), L" value %f", item.value.dblVal);
+            //cs.Format(L"%d name:%s value %lf", id, buff, items->at(0).value.dblVal);
+            //cs = buff;
+            m_ShowItem.SetWindowText(cs);
+            
+        }
+    }
+    return 0;
 }
 
 LRESULT CMainDlg::OnAppAbout(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
@@ -45,9 +83,127 @@ LRESULT CMainDlg::OnOK(WORD /*wNotifyCode*/, WORD wID, HWND /*hWndCtl*/, BOOL& /
 
 LRESULT CMainDlg::OnCancel(WORD /*wNotifyCode*/, WORD wID, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
 {
+    config_file cfg;
+    cfg.load_file("Z:\\work\\bj_wwhy\\code\\icopc\\docs\\config.json");
+
+    char* json = NULL;
+    cfg.dump(&json);
+    MessageBoxA(NULL, json, 0, MB_OK);
+    free(json);
+
+    char merge_str[]=
+        "{"
+	"\"version\":\"1.0\","
+	"\"connections\":["
+		"{"
+		"\"active\":1,"
+		"\"host\":\"127.0.0.1\","
+		"\"server\":\"Matrikon.OPC.Simulation\","
+		"\"groups\":["
+			"{"
+			"\"active\":1,"
+			"\"group\":\"group_append\","
+			"\"rate\":5000,"
+			"\"dead_band\":0.0,"
+            "\"items\":["
+                "{"
+                "\"active\":0,"
+				"\"item\":\"Random.Var4\","
+				"\"type\":\"VT_R8\""
+                "}"
+                "]"
+            "}"
+            "]"
+        "}"
+    "]"
+"}"
+            ;
+    config_file cfg_merge;
+    cfg_merge.load(merge_str);
+    cfg.merge(&cfg_merge);
+
+    cfg.dump(&json);
+    MessageBoxA(NULL, json, 0, MB_OK);
+    free(json);
+
+    char diff_str[]=
+        "{"
+	"\"version\":\"1.0\","
+	"\"connections\":["
+		"{"
+		"\"active\":1,"
+		"\"host\":\"127.0.0.1\","
+		"\"server\":\"Matrikon.OPC.Simulation\","
+		"\"groups\":["
+			"{"
+			"\"active\":1,"
+			"\"group\":\"group_0\","
+			"\"rate\":1000,"
+			"\"dead_band\":0.0,"
+			"\"items\":["
+				"{"
+				"\"active\":1,"
+				"\"item\":\"Random.Int4\","
+				"\"type\":\"VT_R8\""
+				"}"
+			"]"	
+			"}"
+		"]"
+		"}"
+	"]"
+"}"
+;
+
+    config_file cfg_diff;
+    cfg_diff.load(diff_str);
+
+    cfg.diff(&cfg_diff);
+
+    cfg.dump(&json);
+    MessageBoxA(NULL, json, 0, MB_OK);
+    free(json);
+
+
     printf("call connect\n");
-    m_opc->connect("127.0.0.1","Matrikon.OPC.Simulation.1");
-    m_opc->add_item("Random.Int4");
+
+    int svrs = NumberOfOPCServers(FALSE, "127.0.0.1");
+    char buf[512]={0};
+    int items;
+    if(svrs == 0) {
+        memset(buf, 0, sizeof(buf));
+        sprintf(buf, "server number %d", svrs);
+        MessageBoxA(NULL, buf, NULL, MB_OK);
+    }
+
+    for(int i=0; i<svrs; ++i) {
+        memset(buf, 0, sizeof(buf));
+        sprintf(buf, "server %d name:", i);
+        size_t sz =strlen(buf);
+        GetOPCServerName(i, buf+sz, sizeof(buf)-sz);
+        MessageBoxA(NULL, buf, NULL, MB_OK);
+    }
+
+    if(svrs == 0) return 0;
+
+    // Á¬½ÓOPC Server
+    HANDLE opc = ConnectOPC("127.0.0.1", "Matrikon.OPC.Simulation", FALSE);
+
+    if(opc==NULL) return 0;
+
+    items = NumberOfOPCItems(opc);
+    if(items==0) {
+    memset(buf,0, sizeof(buf));
+    sprintf(buf, "items: %d", items);
+    
+
+    MessageBoxA(NULL,buf,NULL,MB_OK);
+    }
+    if(opc)
+        DisconnectOPC(opc);
+
+    int server = m_opc->connect("localhost","Matrikon.OPC.Simulation");
+    int group = m_opc->add_group("grp", 1000, 0, server);
+    m_opc->add_item("Random.Int4", group, server);
     /*
     int svrs = NumberOfOPCServers(FALSE, "127.0.0.1");
     char buf[512]={0};

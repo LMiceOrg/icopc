@@ -67,8 +67,8 @@ CAPTION "About"
 FONT 8, "MS Sans Serif"
 BEGIN
     DEFPUSHBUTTON   "OK",IDOK,130,81,50,14
-    CTEXT           "icopc Application v1.0\n\n(c) Copyright 2020",IDC_STATIC,25,57,78,
-                    32
+    CTEXT           "icopc Application v1.0\n\n(c) Copyright 2020",
+                    IDC_STATIC,25,57,78,32
     ICON            IDR_MAINFRAME,IDC_STATIC,55,26,18,20
     GROUPBOX        "",IDC_STATIC,7,7,115,88
 END
@@ -81,9 +81,8 @@ BEGIN
     DEFPUSHBUTTON   "OK",IDOK,130,7,50,14
     PUSHBUTTON      "Cancel",IDCANCEL,130,24,50,14
     PUSHBUTTON      "&About...",ID_APP_ABOUT,130,77,50,14
+    LTEXT           "item value",IDC_SHOW_ITEM,7,42,148,30
 END
-
-
 
 
 /////////////////////////////////////////////////////////////////////////////
@@ -137,6 +136,7 @@ BEGIN
 END
 
 
+#ifndef _MAC
 /////////////////////////////////////////////////////////////////////////////
 //
 // Version
@@ -171,9 +171,12 @@ BEGIN
     END
     BLOCK "VarFileInfo"
     BEGIN
-        VALUE "Translation", 0x0409, 0x04B0
+        VALUE "Translation", 0x409, 1200
     END
 END
+
+#endif    // !_MAC
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -182,7 +185,7 @@ END
 
 STRINGTABLE PRELOAD DISCARDABLE 
 BEGIN
-    IDR_MAINFRAME	"icopc"
+    IDR_MAINFRAME           "icopc"
 END
 
 STRINGTABLE DISCARDABLE 
@@ -262,11 +265,16 @@ END
 STRINGTABLE DISCARDABLE 
 BEGIN
     ATL_IDS_IDLEMESSAGE     "Ready"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
     ATL_IDS_MRU_FILE        "Open this document"
 END
 
 #endif    // English (U.S.) resources
 /////////////////////////////////////////////////////////////////////////////
+
 
 
 #ifndef APSTUDIO_INVOKED
@@ -278,3 +286,4 @@ CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST "res\\icopc.exe.manifest"
 
 /////////////////////////////////////////////////////////////////////////////
 #endif    // not APSTUDIO_INVOKED
+

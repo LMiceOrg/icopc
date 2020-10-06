@@ -1,9 +1,6 @@
 #define WIN32_LEAN_AND_MEAN
-
-
-
 #include <winsock2.h>
-#include <Ws2tcpip.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -24,6 +21,23 @@ void socket_init() {
     int ret;
     ret = WSAStartup(MAKEWORD(2,2), &wsaData);
 
+}
+
+void iocp_broadcast_timeout(iocp_server* svr) {
+    iocp_datas* datas;
+    EnterCriticalSection(&svr->cs);
+    datas = &svr->datas;
+    do {
+        int i;
+        for(i=0; i<32; ++i) {
+            if(datas->data[i] != NULL) {
+                datas->data[i]->proc_timeout(datas->data[i]);
+            }
+        }
+        datas = datas->next;
+
+    } while(datas);
+    LeaveCriticalSection(&svr->cs);
 }
 
 int iocp_register(iocp_server* svr, iocp_data* data) {
@@ -79,13 +93,15 @@ int iocp_unregister(iocp_server* svr, iocp_data* data) {
     return finish;
 }
 
-iocp_server* iocp_server_start() {
+iocp_server* iocp_server_start(DWORD period) {
     DWORD dwCPU;
     SYSTEM_INFO systemInfo;
     iocp_server* svr;
     svr = (iocp_server*)iocp_malloc(sizeof(iocp_server));
     svr->iocp_register = iocp_register;
     svr->iocp_unregister = iocp_unregister;
+    svr->timeout_proc = iocp_broadcast_timeout;
+    svr->timeout_period = period;
 
     InitializeCriticalSection(&svr->cs);
 
@@ -201,16 +217,20 @@ DWORD WINAPI iocp_server_main ( LPVOID context ) {
         state = GetQueuedCompletionStatus(svr->iocp, &io_size,
                                              (PDWORD_PTR)&data,
                                              &overlapped,
-                                             100 /**< wait 100 mill-secs */
+                                             svr->timeout_period /**< wait 10*1000 mill-secs */
                                              );
         if( state == FALSE && overlapped == NULL ) {
             /** timeout */
+            if(svr->timeout_proc != NULL)
+                svr->timeout_proc(svr);
+
             continue;
         }
 
-        if( data == NULL ) {
+        if(data == NULL)
             return(0);
-        }
+
+        
         if( state == FALSE) {
             printf("state false\n");
         }

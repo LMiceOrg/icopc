@@ -19,7 +19,7 @@
 struct opc_group {
 HANDLE group;
 HANDLE opc;
-std::string name;
+char name[128];
 unsigned long rate;
 float dead_band;
 };
@@ -27,10 +27,35 @@ float dead_band;
 struct opc_item{
     HANDLE item;
     HANDLE group;
-    std::string name;
+    HANDLE opc;
+    
+    char name[128];
     CComVariant value;
-    DWORD qulity;
-    FILETIME time;
+    DWORD quality;
+    FILETIME timestamp;
+};
+
+struct opc_server {
+    char host[128];
+    char server[128];
+    HANDLE opc;
+    call_thunk::unsafe_thunk* thunk;
+
+    opc_server() {
+        memset(this, 0, sizeof(opc_server));
+        thunk = new call_thunk::unsafe_thunk(6, NULL, call_thunk::cc_stdcall, call_thunk::cc_stdcall);
+    }
+
+    ~opc_server() {
+        if(opc)
+            DisconnectOPC(opc);
+        opc = NULL;
+        if(thunk)
+            delete thunk;
+        thunk=NULL;
+        
+        
+    }
 };
 
 class ic_opcdaclient {
@@ -38,16 +63,19 @@ public:
     ic_opcdaclient();
     ~ic_opcdaclient();
 
-    void connect(const char* host, const char* name);
-    int add_group(const char* name, unsigned long rate, float dead_band);
-    int add_item(const char* name, int group=0);
+    int connect(const char* host, const char* name);
+    int add_group(const char* name, unsigned long rate, float dead_band, int server=0);
+    int add_item(const char* name, int group=0, int server=0);
     void CALLBACK update_proc(HANDLE hConnection, HANDLE hGroup, 
         HANDLE hItem, VARIANT *pVar, FILETIME timestamp, DWORD quality);
+    const std::vector<opc_item>* items() const;
 private:
-    HANDLE m_opc;
-    std::vector<opc_group> m_groups;
+    //HANDLE m_opc;
+    std::vector<opc_server*> m_servers;
+    std::vector<opc_group*> m_groups;
     std::vector<opc_item>m_items;
-    call_thunk::unsafe_thunk* m_thunk;
+    CRITICAL_SECTION  m_lock;
+    //call_thunk::unsafe_thunk* m_thunk;
 };
 typedef void  (CALLBACK * opc_update_proc)(HANDLE, HANDLE, 
         HANDLE, VARIANT *, FILETIME, DWORD);

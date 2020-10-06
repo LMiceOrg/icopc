@@ -11,16 +11,23 @@
 
 #include "opcdaclient.h"
 
-class CMainDlg : public CDialogImpl<CMainDlg>
+class CMainDlg : public CDialogImpl<CMainDlg>,public CWinDataExchange<CMainDlg>,
+   public CCustomDraw<CMainDlg>
 {
 public:
 	enum { IDD = IDD_MAINDLG };
 
+    BEGIN_DDX_MAP(CMainDlg)
+        DDX_CONTROL_HANDLE(IDC_SHOW_ITEM, m_ShowItem)
+    END_DDX_MAP()
+
 	BEGIN_MSG_MAP(CMainDlg)
 		MESSAGE_HANDLER(WM_INITDIALOG, OnInitDialog)
+        MSG_WM_TIMER(OnTimer)
 		COMMAND_ID_HANDLER(ID_APP_ABOUT, OnAppAbout)
 		COMMAND_ID_HANDLER(IDOK, OnOK)
 		COMMAND_ID_HANDLER(IDCANCEL, OnCancel)
+        
 	END_MSG_MAP()
 
 // Handler prototypes (uncomment arguments if needed):
@@ -33,9 +40,14 @@ public:
 	LRESULT OnOK(WORD /*wNotifyCode*/, WORD wID, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
 	LRESULT OnCancel(WORD /*wNotifyCode*/, WORD wID, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
 
+    LRESULT OnTimer(UINT_PTR id );
+    CStatic m_ShowItem;
+    HWND m_timer;
 private:
 
     ic_opcdaclient *m_opc;
+
+    
 };
 
 
