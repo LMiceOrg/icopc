@@ -1,0 +1,30 @@
+{
+	"version":"1.0",
+	"connections":[
+		{
+		"active":1,
+		"host":"127.0.0.1",
+		"server":"Matrikon.OPC.Simulation",
+		"groups":[
+			{
+			"active":1,
+			"group":"group_0",
+			"rate":1000,
+			"dead_band":0.0,
+			"items":[
+				{
+				"active":1,
+				"item":"Random.Int4",
+				"type":"VT_R8"
+				},
+				{
+				"active":1,
+				"item":"Random.Int1",
+				"type":"VT_UI1"
+				}
+			]	
+			}
+		]
+		}
+	]
+}
