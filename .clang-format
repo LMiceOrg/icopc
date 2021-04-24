@@ -1,0 +1,5 @@
+{BasedOnStyle: Google,IndentWidth: 4,PointerAlignment: Right,ColumnLimit: 120,SpaceAfterCStyleCast: true,
+#连续赋值时，对齐所有等号
+AlignConsecutiveAssignments: true,
+# 连续声明时，对齐所有声明的变量名
+AlignConsecutiveDeclarations: true}
