@@ -132,7 +132,7 @@ int opcda2_server_connect(const wchar_t *host, const wchar_t *prog_id, data_list
     c->hash = eal_hash32_fnv1a(host, wcslen(host) * sizeof(wchar_t));
     c->hash = eal_hash32_fnv1a_more(prog_id, wcslen(prog_id) * sizeof(wchar_t), c->hash);
 
-    memset(qi_list, 0, sizeof(qi_list)); 
+    memset(qi_list, 0, sizeof(qi_list));
     qi_list[0].pIID = &IID_IOPCServer;
 
     CLSIDFromProgID(prog_id, &cls_id);
@@ -268,55 +268,71 @@ clean_up:
     return ret;
 }
 
-void opcda2_server_disconnect(server_connect **conn) {
+void opcda2_server_disconnect(server_connect *conn) {
+
+
+    trace_debug("call svr Release\n");
+
+    /* 1. 注销 通知 Shutdown */
+    opcda2_server_unadvise_shutdown(conn);
+
+    /* 2. 清除 groups */
+    for (int i = 0; i < OPCDA2_SERVER_GROUP_MAX; ++i) {
+        group *grp = conn->grp + i;
+        opcda2_group_del(conn, &grp);
+    }
+    conn->grp_size = 0;
+
+    /* 3. 清除 item_lists */
+    if (conn->item_list) {
+        CoTaskMemFree(conn->item_list);
+        conn->item_list = NULL;
+    }
+
+    /* 4. 清除 IOPCServer */
+    if (conn->svr) {
+        conn->svr->lpVtbl->Release(conn->svr);
+        conn->svr = NULL;
+    }
+}
+
+/* 取消 通知 shutdown */
+void opcda2_server_unadvise_shutdown(server_connect *conn) {
     HRESULT                    hr;
     IConnectionPointContainer *cp_ter = NULL;
     IConnectionPoint *         cp     = NULL;
-    server_connect *           c      = *conn;
-    if (c->cookie) {
-        hr = c->svr->lpVtbl->QueryInterface(c->svr, &IID_IConnectionPointContainer, (void **) &cp_ter);
+    IOPCServer *               svr    = conn->svr;
+    DWORD                      cookie = conn->cookie;
+
+    conn->cookie = 0;
+
+    if (cookie) {
+        /* 1 获取 IConnectionPointContainer */
+        hr = svr->lpVtbl->QueryInterface(svr, &IID_IConnectionPointContainer, (void **) &cp_ter);
         if (FAILED(hr)) {
-            trace_debug("svr QueryInterface(IID_IConnectionPointContainer) failed %ld\n", hr);
+            trace_debug("server QueryInterface(IID_IConnectionPointContainer) faild %ld\n", hr);
             goto clean_up;
         }
 
+        /* 2 获取 IOPCShutdown */
         hr = cp_ter->lpVtbl->FindConnectionPoint(cp_ter, &IID_IOPCShutdown, &cp);
         if (FAILED(hr)) {
-            trace_debug("svr FindConnectionPoint(IID_IOPCShutdown) failed %ld\n", hr);
+            trace_debug("server FindConnectionPoint(IID_IOPCShutdown) faild %ld\n", hr);
             goto clean_up;
         }
-        trace_debug("call Unadvise\n");
-        hr = cp->lpVtbl->Unadvise(cp, c->cookie);
-        if (FAILED(hr)) {
-            trace_debug("svr Unadvise(IID_IOPCShutdown) failed %ld\n", hr);
-            goto clean_up;
-        }
-        trace_debug("called Unadvise\n");
-    }
 
-    /* clean groups */
-    for (int i = 0; i < c->grp_size; ++i) {
-        group *grp = c->grp + i;
-        opcda2_group_del(c, &grp);
+        /* 3 取消通知 */
+        hr = cp->lpVtbl->Unadvise(cp, cookie);
+        if (FAILED(hr)) {
+            trace_debug("server Advise(IID_IOPCShutdown) faild %ld\n", hr);
+            goto clean_up;
+        }
     }
 clean_up:
-    if (cp) {
-        cp->lpVtbl->Release(cp);
-    }
-
-    if (cp_ter) {
-        cp_ter->lpVtbl->Release(cp_ter);
-    }
-    trace_debug("call svr Release\n");
-    if (c->item_list) {
-      CoTaskMemFree(c->item_list);
-    }
-
-    c->svr->lpVtbl->Release(c->svr);
-    CoTaskMemFree(c);
-
-    *conn = NULL;
+    if (cp) cp->lpVtbl->Release(cp);
+    if (cp_ter) cp_ter->lpVtbl->Release(cp_ter);
 }
+
 /* 注册 通知 shutown */
 int opcda2_server_advise_shutdown(server_connect *conn, IUnknown *sd) {
     int                        ret = 1;
@@ -339,6 +355,10 @@ int opcda2_server_advise_shutdown(server_connect *conn, IUnknown *sd) {
         goto clean_up;
     }
 
+    /* 2.1 首先注销以前的 cookie */
+    if (conn->cookie) {
+        hr = cp->lpVtbl->Unadvise(cp, conn->cookie);
+    }
     /* 3 注册通知 */
     hr = cp->lpVtbl->Advise(cp, sd, &conn->cookie);
     if (FAILED(hr)) {

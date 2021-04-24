@@ -2,6 +2,7 @@
 #include <stddef.h>
 
 #include "callback.h"
+#include "server.h"
 #include "group.h"
 #include "trace.h"
 
@@ -14,7 +15,8 @@ typedef struct client_interface {
     struct IOPCDataCallbackVtbl *lpVtbl;    /* IOPCDataCallback(base) */
     client_ishundown             shutdown;  /* IOPCShutdown object */
     volatile LONG                ref_count; /* 引用计数 */
-    data_list *                  datas;     /* 数据表 */
+    data_list *                  datas;     /* 数据表 用于 DataCallback */
+    server_connect *             conn;      /* 通知连接关闭 用于Shutdown */
 } client_interface;
 
 HRESULT STDMETHODCALLTYPE callback_QueryInterface(/* [in] */ IOPCDataCallback *This,
@@ -227,8 +229,12 @@ HRESULT STDMETHODCALLTYPE shutdown_ShutdownRequest(IOPCShutdown *             se
     client_interface *base;
 
     base = (client_interface *) ((unsigned char *) self - offsetof(client_interface, shutdown));
-
-    wtrace_debug(L"server shutdown :%ls, count:%ld \n", reason, base->ref_count);
+    if (base->conn) {
+        wtrace_debug(L"host[%ls] server[%ls] shutdown :%ls, group count:%ld \n", base->conn->host, base->conn->prog_id,
+                     reason, base->conn->grp_size);
+        opcda2_server_disconnect(base->conn);
+        base->conn = NULL;
+    }
 
     return S_OK;
 }
@@ -242,7 +248,8 @@ static IOPCDataCallbackVtbl private_datacallback_vtbl = {
 static IOPCShutdownVtbl private_shutdown_vtbl = {shutdown_QueryInterface, shutdown_AddRef, shutdown_Release,
                                                  shutdown_ShutdownRequest};
 
-int opcda2_callback_create(IUnknown **cb, data_list *datas) {
+/* 创建callback对象 */
+int opcda2_callback_create(struct server_connect* conn, IUnknown **cb) {
     client_interface *it;
 
     /* 创建对象内存 */
@@ -255,7 +262,8 @@ int opcda2_callback_create(IUnknown **cb, data_list *datas) {
     it->lpVtbl          = &private_datacallback_vtbl;
     it->shutdown.lpVtbl = &private_shutdown_vtbl;
 
-    it->datas = datas;
+    it->conn = conn;
+    it->datas = conn->datas;
 
     /* 增加引用计数 */
     it->lpVtbl->AddRef((IOPCDataCallback *) it);

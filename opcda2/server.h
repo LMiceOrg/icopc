@@ -17,6 +17,7 @@ In general the three methods operate independently without ‘side effects’ on
 #include "callback.h"
 
 #define OPCDA2_SERVER_GROUP_MAX 16
+#define OPCDA2_CONNECT_MAX 16
 
 typedef struct server_info {
     LPOLESTR  prog_id;
@@ -42,18 +43,23 @@ typedef struct server_connect {
     group      grp[OPCDA2_SERVER_GROUP_MAX];
 } server_connect;
 
+typedef struct connect_list {
+    server_connect conn[OPCDA2_CONNECT_MAX];
+} connect_list;
+
+/* 获取可用OPCServer列表 */
 int opcda2_server_info_fetch(const wchar_t *host, int* size, server_info **info_list);
 void opcda2_server_info_clear(int size,  server_info **info_list);
 
+/* 连接 OPCServer */
 int opcda2_server_connect(const wchar_t *host, const wchar_t* prog_id, data_list* items, server_connect** conn);
-void opcda2_server_disconnect(server_connect** conn);
-
-/** 读取数据 */
+void opcda2_server_disconnect(server_connect* conn);
 
 /* 通知 IOPCShutdown */
 int opcda2_server_advise_shutdown(server_connect* conn, IUnknown* sd);
+void opcda2_server_unadvise_shutdown(server_connect *conn);
 
-/** 组操作 */
+/** 操作 OPCGroup */
 int opcda2_group_add(server_connect* conn, const wchar_t *name, int active, int rate, group **grp);
 int opcda2_group_del(server_connect* conn, group **grp);
 

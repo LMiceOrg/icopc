@@ -278,14 +278,15 @@ void test(int size, const wchar_t *items) {
 
 int main() {
   _CrtSetDbgFlag(_CRTDBG_REPORT_FLAG);
-
+  trace_debug("conn size %u\n", sizeof(connect_list));
+  return 0;
   /* 初始化COM */
   CoInitializeEx(0, COINIT_MULTITHREADED);
 
   server_info *info_list;
   int size;
   opcda2_server_info_fetch(L"127.0.0.1", &size, &info_list);
-  printf("info_list %p, size %d\n", info_list, size);
+  printf("info_list size %d\n", size);
   if (info_list) {
     for (int i = 0; i < size; ++i) {
       server_info* info = info_list + i;
@@ -324,17 +325,19 @@ int main() {
       wtrace_debug(L"%ls\n", id);
   }
 
-  opcda2_item_add(grp, 6, item_id, item_active);
+  opcda2_item_add(grp, 6, (const wchar_t*)item_id, item_active);
 
 
   trace_debug("testing callback\n");
   IUnknown *cb;
-  opcda2_callback_create(&cb, items);
+  opcda2_callback_create(conn, &cb);
+
+  opcda2_server_advise_shutdown(conn, cb);
   opcda2_group_advise_callback(grp, cb);
 
   group* grp2;
   opcda2_group_add(conn, L"group002", 1, 2000, &grp2);
-  opcda2_item_add(grp2, 6, item_id, item_active);
+  opcda2_item_add(grp2, 6, (const wchar_t*)item_id, item_active);
   opcda2_group_advise_callback(grp2, cb);
 
   //opcda2_item_del(grp, -1, NULL);
@@ -345,12 +348,17 @@ int main() {
 
   getchar();
   // opcda2_item_del(grp, 6, item_id);
-  opcda2_server_disconnect(&conn);
+  trace_debug("conn %p\n", (void*)conn);
+  trace_debug("*conn %p\n", (void*)&conn);
+  opcda2_server_disconnect(conn);
+  trace_debug("conn %p\n", (void*)conn);
+  trace_debug("*conn %p\n", (void*)&conn);
+  //CoTaskMemFree(conn);
 
   CoTaskMemFree(items);
 
 // for(int i=0; i<5; ++i) {
-  trace_debug("test list group\n");
+  // trace_debug("test list group\n");
   // test_websocket();
   // list_group(L"127.0.0.1", L"Matrikon.OPC.Simulation.1");
 // }
