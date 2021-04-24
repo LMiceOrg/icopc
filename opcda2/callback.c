@@ -129,9 +129,12 @@ HRESULT STDMETHODCALLTYPE callback_OnDataChange(IOPCDataCallback *             s
                                                 /* [size_is][in] */ FILETIME * pftTimeStamps,
                                                 /* [size_is][in] */ HRESULT *  pErrors) {
     client_interface *base;
+    DWORD tid;
 
     base = (client_interface *) (self);
-    trace_debug("group: %lu\tOnDataChange: %lu\n", hGroup, dwCount);
+    tid = GetCurrentThreadId();
+
+    trace_debug("th[%ld] group: %lu\tOnDataChange[%lu] item count: %lu\n", tid, hGroup, dwTransid, dwCount);
     for (DWORD i = 0; i < dwCount; ++i) {
         unsigned int handle = phClientItems[i];
         item_data *  data;
@@ -140,8 +143,9 @@ HRESULT STDMETHODCALLTYPE callback_OnDataChange(IOPCDataCallback *             s
 
         VariantClear(&data->value);
         VariantCopy(&data->value, pvValues + i);
+        memcpy(&(data->ts), pftTimeStamps, sizeof(FILETIME));
 
-        wtrace_debug(L"group [%d] item %ls:\tvalue %d\n", hGroup, data->id, data->value.intVal);
+        wtrace_debug(L"\t item[%X]: %ls,\tivalue: %d\n", handle, data->id, data->value.intVal);
     }
     return S_OK;
 }
@@ -157,6 +161,22 @@ HRESULT STDMETHODCALLTYPE callback_OnReadComplete(IOPCDataCallback *            
                                                   /* [size_is][in] */ WORD *     pwQualities,
                                                   /* [size_is][in] */ FILETIME * pftTimeStamps,
                                                   /* [size_is][in] */ HRESULT *  pErrors) {
+    client_interface *base;
+
+    base = (client_interface *) (self);
+    trace_debug("group: %lu\tOnReadComplete[%lu] item count: %lu\n", hGroup, dwTransid, dwCount);
+    for (DWORD i = 0; i < dwCount; ++i) {
+        unsigned int handle = phClientItems[i];
+        item_data *  data;
+        data = opcda2_data_find(base->datas, handle);
+        if (data == NULL) continue;
+
+        VariantClear(&data->value);
+        VariantCopy(&data->value, pvValues + i);
+        memcpy(&(data->ts), pftTimeStamps, sizeof(FILETIME));
+
+        wtrace_debug(L"\t item: %ls,\tivalue: %d\n", data->id, data->value.intVal);
+    }
     return S_OK;
 }
 

@@ -278,42 +278,17 @@ void test(int size, const wchar_t *items) {
 
 int main() {
   _CrtSetDbgFlag(_CRTDBG_REPORT_FLAG);
-  trace_debug("conn size %u\n", sizeof(connect_list));
-  return 0;
+  trace_debug("item id size %u\n", sizeof(item_id));
+  // return 0;
   /* 初始化COM */
   CoInitializeEx(0, COINIT_MULTITHREADED);
 
-  server_info *info_list;
-  int size;
-  opcda2_server_info_fetch(L"127.0.0.1", &size, &info_list);
-  printf("info_list size %d\n", size);
-  if (info_list) {
-    for (int i = 0; i < size; ++i) {
-      server_info* info = info_list + i;
-      wprintf(L"info name:%ls, user_type:%ls\n", info->prog_id, info->user_type);
-    }
-  }
-  opcda2_server_info_clear(size, &info_list);
-
-  data_list* items;
-  items = CoTaskMemAlloc(sizeof(data_list));
-  memset(items, 0, sizeof(data_list));
-
-  server_connect *conn;
-  opcda2_server_connect(L"127.0.0.1", L"Matrikon.OPC.Simulation.1", items, &conn);
-  for(int i=0; i<conn->item_size; ++i) {
-    wprintf(L"item %d: %ls\n", i, conn->item_list[i].id);
-  }
-  /* test add group */
-  group *grp = NULL;
-  opcda2_group_add(conn, L"group001", 1, 5000, &grp);
-
-  printf("call opcda2_item_add\n");
+  int     item_size = 6;
   int     item_active[6];
   wchar_t item_id[6][32];
-  memset(item_id, 0, 6 * 32 * sizeof(wchar_t));
+  memset(item_id, item_size, 6 * 32 * sizeof(wchar_t));
   int surfix[6] = {1, 2, 4, 1, 2, 4};
-  for (int i = 0; i < 6; ++i) {
+  for (int i = 0; i < item_size; ++i) {
       item_active[i] = 1;
       wchar_t *id    = item_id[i];
 
@@ -322,28 +297,66 @@ int main() {
       } else {
           swprintf(id, 32, L"Random.UInt%d", surfix[i]);
       }
-      wtrace_debug(L"%ls\n", id);
+      // wtrace_debug(L"%ls\n", id);
   }
 
-  opcda2_item_add(grp, 6, (const wchar_t*)item_id, item_active);
+  server_info *info_list;
+  int size;
+  opcda2_serverlist_fetch(L"127.0.0.1", &size, &info_list);
+  printf("info_list size %d\n", size);
+  if (info_list) {
+    for (int i = 0; i < size; ++i) {
+      server_info* info = info_list + i;
+      wprintf(L"info name:%ls, user_type:%ls\n", info->prog_id, info->user_type);
+    }
+  }
+  opcda2_serverlist_clear(size, info_list);
+
+  data_list* items;
+  items = CoTaskMemAlloc(sizeof(data_list));
+  memset(items, 0, sizeof(data_list));
+
+  server_connect *conn;
+  opcda2_server_connect(L"127.0.0.1", L"Matrikon.OPC.Simulation.1", items, &conn);
 
 
-  trace_debug("testing callback\n");
-  IUnknown *cb;
-  opcda2_callback_create(conn, &cb);
+  // for(int i=0; i<conn->item_size; ++i) {
+  //   wprintf(L"item %d: %ls\n", i, conn->item_list[i].id);
+  // }
 
-  opcda2_server_advise_shutdown(conn, cb);
-  opcda2_group_advise_callback(grp, cb);
+  // trace_debug("testing callback\n");
+  // IUnknown *cb;
+  // opcda2_callback_create(conn, &cb);
 
-  group* grp2;
-  opcda2_group_add(conn, L"group002", 1, 2000, &grp2);
-  opcda2_item_add(grp2, 6, (const wchar_t*)item_id, item_active);
-  opcda2_group_advise_callback(grp2, cb);
+  // opcda2_server_advise(conn, cb);
+
+
+
+  // cb->lpVtbl->Release(cb);
+
+  /* test add group */
+  printf("call opcda2_item_add\n");
+
+  group *grp = NULL;
+  opcda2_group_add(conn, L"group001", 1, 5000, &grp);
+
+  group *grp2 = NULL;
+  opcda2_group_add(conn, L"group002", 1, 2500, &grp2);
+
+  opcda2_item_add(grp, item_size, (const wchar_t*)item_id, item_active);
+
+  opcda2_item_add(grp2, item_size, (const wchar_t*)item_id, item_active);
+
+ group *grp3 = NULL;
+ opcda2_group_add(conn, L"group003", 1, 2500, &grp3);
+ opcda2_item_add(grp3, 1, (const wchar_t*)item_id, item_active);
+
+
 
   //opcda2_item_del(grp, -1, NULL);
   //opcda2_item_del(grp2, -1, NULL);
 
-  cb->lpVtbl->Release(cb);
+
 
 
   getchar();
@@ -351,9 +364,12 @@ int main() {
   trace_debug("conn %p\n", (void*)conn);
   trace_debug("*conn %p\n", (void*)&conn);
   opcda2_server_disconnect(conn);
+  CoTaskMemFree(conn);
   trace_debug("conn %p\n", (void*)conn);
   trace_debug("*conn %p\n", (void*)&conn);
   //CoTaskMemFree(conn);
+  size_t sz = GlobalSize(conn);
+  trace_debug("conn size:%u\n", sz);
 
   CoTaskMemFree(items);
 
@@ -402,7 +418,7 @@ MEMORYSTATUSEX statex;
   wtrace_debug (L"There are %*I64d free  KB of extended memory.\n",
             WIDTH, statex.ullAvailExtendedVirtual/DIV);
 // char *p = (char *) CoTaskMemAlloc(1024);
-// size_t sz = GlobalSize(p);
+
 // trace_debug("p size:%lu\n", sz);
 
 // HEAP_SUMMARY summary;

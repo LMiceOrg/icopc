@@ -20,20 +20,24 @@ extern const IID IID_IOPCServer;
 extern const IID IID_IOPCBrowseServerAddressSpace;
 
 extern const IID IID_IOPCGroupStateMgt;
-
 extern const IID IID_IOPCItemMgt;
+extern const IID IID_IOPCAsyncIO2;
 
 extern const IID IID_IOPCDataCallback;
 extern const IID IID_IOPCShutdown;
 
 typedef struct IOPCServerList IOPCServerList;
 
-typedef struct IOPCServer IOPCServer;
+/* OPCServer interface */
+typedef interface IOPCServer IOPCServer;
 typedef interface IOPCBrowseServerAddressSpace IOPCBrowseServerAddressSpace;
 
-typedef struct IOPCGroupStateMgt IOPCGroupStateMgt;
-typedef struct IOPCItemMgt       IOPCItemMgt;
+/* OPCGroup interface */
+typedef interface IOPCGroupStateMgt IOPCGroupStateMgt;
+typedef interface IOPCItemMgt IOPCItemMgt;
+typedef interface IOPCAsyncIO2 IOPCAsyncIO2;
 
+/* OPCClient interface */
 typedef interface IOPCDataCallback IOPCDataCallback;
 typedef interface IOPCShutdown IOPCShutdown;
 
@@ -453,6 +457,61 @@ typedef struct IOPCItemMgtVtbl {
 
 interface IOPCItemMgt {
     CONST_VTBL struct IOPCItemMgtVtbl __RPC_FAR *lpVtbl;
+};
+
+typedef struct IOPCAsyncIO2Vtbl {
+    BEGIN_INTERFACE
+
+    HRESULT(STDMETHODCALLTYPE *QueryInterface)
+    (IOPCAsyncIO2 *    This,
+     /* [in] */ REFIID riid,
+     /* [iid_is][out] */
+     __RPC__deref_out void **ppvObject);
+
+    ULONG(STDMETHODCALLTYPE *AddRef)(IOPCAsyncIO2 *This);
+
+    ULONG(STDMETHODCALLTYPE *Release)(IOPCAsyncIO2 *This);
+
+    HRESULT(STDMETHODCALLTYPE *Read)
+    (IOPCAsyncIO2 *                          This,
+     /* [in] */ DWORD                        dwCount,
+     /* [size_is][in] */ OPCHANDLE *         phServer,
+     /* [in] */ DWORD                        dwTransactionID,
+     /* [out] */ DWORD *                     pdwCancelID,
+     /* [size_is][size_is][out] */ HRESULT **ppErrors);
+
+    HRESULT(STDMETHODCALLTYPE *Write)
+    (IOPCAsyncIO2 *                          This,
+     /* [in] */ DWORD                        dwCount,
+     /* [size_is][in] */ OPCHANDLE *         phServer,
+     /* [size_is][in] */ VARIANT *           pItemValues,
+     /* [in] */ DWORD                        dwTransactionID,
+     /* [out] */ DWORD *                     pdwCancelID,
+     /* [size_is][size_is][out] */ HRESULT **ppErrors);
+
+    HRESULT(STDMETHODCALLTYPE *Refresh2)
+    (IOPCAsyncIO2 *           This,
+     /* [in] */ OPCDATASOURCE dwSource,
+     /* [in] */ DWORD         dwTransactionID,
+     /* [out] */ DWORD *      pdwCancelID);
+
+    HRESULT(STDMETHODCALLTYPE *Cancel2)
+    (IOPCAsyncIO2 *   This,
+     /* [in] */ DWORD dwCancelID);
+
+    HRESULT(STDMETHODCALLTYPE *SetEnable)
+    (IOPCAsyncIO2 *  This,
+     /* [in] */ BOOL bEnable);
+
+    HRESULT(STDMETHODCALLTYPE *GetEnable)
+    (IOPCAsyncIO2 *    This,
+     /* [out] */ BOOL *pbEnable);
+
+    END_INTERFACE
+} IOPCAsyncIO2Vtbl;
+
+interface IOPCAsyncIO2 {
+    CONST_VTBL struct IOPCAsyncIO2Vtbl *lpVtbl;
 };
 
 typedef struct IOPCDataCallbackVtbl {
