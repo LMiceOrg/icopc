@@ -393,15 +393,12 @@ int opcda2_server_advise_shutdown(server_connect *conn, IUnknown *sd) {
 
         /* 使用之前设置的callback */
         sd = conn->callback;
-    }
-
-    /* 增加对象引用计数, 如果连接失败，需要减少引用计数 */
-    sd->lpVtbl->AddRef(sd);
-
-    /* 释放之前的callback */
-    if (conn->callback) {
-        conn->callback->lpVtbl->Release(conn->callback);
-        conn->callback = NULL;
+    } else {
+        /* 释放之前的callback */
+        if (conn->callback) {
+            conn->callback->lpVtbl->Release(conn->callback);
+            conn->callback = NULL;
+        }
     }
 
     /* 1 获取 IConnectionPointContainer */
@@ -434,10 +431,6 @@ int opcda2_server_advise_shutdown(server_connect *conn, IUnknown *sd) {
 
     ret = 0;
 clean_up:
-    if (ret) {
-        /* 注册失败，减少引用计数 */
-        sd->lpVtbl->Release(sd);
-    }
 
     if (cp) {
         cp->lpVtbl->Release(cp);
@@ -544,7 +537,6 @@ int opcda2_group_add(server_connect *conn, const wchar_t *name, int active, int 
     new_grp->salt = salt_gen();
     new_grp->hash = eal_hash32_fnv1a_more(name, name_len*sizeof(wchar_t), conn->hash);
     new_grp->hash = eal_hash32_fnv1a_more(&new_grp->salt, 4, new_grp->hash);
-    wtrace_debug(L"grp(%ls) handle [%d] hash %u svr %u\n", new_grp->name, new_grp->cli_group, new_grp->hash, conn->hash);
 
     /* 更新 group 数量 */
     conn->grp_size++;
@@ -555,11 +547,15 @@ int opcda2_group_add(server_connect *conn, const wchar_t *name, int active, int 
 
     *grp = new_grp;
     ret  = 0;
-
+    wtrace_debug(L"add grp(%ls) handle [%d] hash %u svr %u\n", new_grp->name, new_grp->cli_group, new_grp->hash, conn->hash);
 clean_up:
     if (cp_ter) cp_ter->lpVtbl->Release(cp_ter);
 
     if (ret) {
+        if (svr_handle) {
+            conn->svr->lpVtbl->RemoveGroup(conn->svr, svr_handle, TRUE);
+            svr_handle = 0;
+        }
         if (cp) cp->lpVtbl->Release(cp);
         if (itm_mgt) itm_mgt->lpVtbl->Release(itm_mgt);
         if (grp_mgt) grp_mgt->lpVtbl->Release(grp_mgt);
@@ -608,4 +604,5 @@ void opcda2_group_del(server_connect *conn, group *grp) {
         conn->svr->lpVtbl->RemoveGroup(conn->svr, grp->svr_handle, TRUE);
         grp->svr_handle = 0;
     }
+    wtrace_debug(L"del grp(%ls) handle [%d] hash %u svr %u\n", grp->name, grp->cli_group, grp->hash, conn->hash);
 }

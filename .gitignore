@@ -1,0 +1,9 @@
+
+/build/
+/Debug/
+/Release/
+
+*.aps
+*.ncb
+*.opt
+*.user

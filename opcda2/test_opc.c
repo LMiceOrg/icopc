@@ -335,17 +335,15 @@ int main_test() {
 
     group *grp = NULL;
     opcda2_group_add(conn, L"group001", 1, 5000, &grp);
-
-    // group *grp2 = NULL;
-    // opcda2_group_add(conn, L"group002", 1, 2500, &grp2);
-
+    opcda2_item_add(grp, item_size, (const wchar_t *) item_id, item_active);
+    opcda2_group_add(conn, L"group002", 1, 4000, &grp);
+    // opcda2_item_add(grp, item_size, (const wchar_t *) item_id, item_active);
+    opcda2_group_add(conn, L"group003", 1, 3000, &grp);
+    // opcda2_item_add(grp, item_size, (const wchar_t *) item_id, item_active);
+    opcda2_group_add(conn, L"group004", 1, 2000, &grp);
     // opcda2_item_add(grp, item_size, (const wchar_t *) item_id, item_active);
 
-    // opcda2_item_add(grp2, item_size, (const wchar_t *) item_id, item_active);
 
-    // group *grp3 = NULL;
-    // opcda2_group_add(conn, L"group003", 1, 2500, &grp3);
-    // opcda2_item_add(grp3, 1, (const wchar_t *) item_id, item_active);
 
     // // opcda2_item_del(grp, -1, NULL);
     // // opcda2_item_del(grp2, -1, NULL);
@@ -353,12 +351,9 @@ int main_test() {
     Sleep(1000);
 
     // opcda2_item_del(grp, 6, item_id);
-    trace_debug("conn %p\n", (void *) conn);
-    trace_debug("*conn %p\n", (void *) &conn);
     opcda2_server_disconnect(conn);
     CoTaskMemFree(conn);
-    trace_debug("conn %p\n", (void *) conn);
-    trace_debug("*conn %p\n", (void *) &conn);
+
 
     }
 
@@ -370,37 +365,30 @@ int main_test() {
     // list_group(L"127.0.0.1", L"Matrikon.OPC.Simulation.1");
     // }
 
-    printf("sizeof server_connect %u\n", sizeof(server_connect));
-    printf("sizeof server_connect %u\n", sizeof(data_list));
-    printf("sizeof variant %u\n", sizeof(VARIANT));
+    // printf("sizeof server_connect %u\n", sizeof(server_connect));
+    // printf("sizeof server_connect %u\n", sizeof(data_list));
+    // printf("sizeof variant %u\n", sizeof(VARIANT));
 
-    trace_debug("dump leaks\n");
+    // trace_debug("dump leaks\n");
     _CrtDumpMemoryLeaks();
 
 // Use to convert bytes to KB
-#define DIV 1024
-#define WIDTH 7
+  // #define DIV 1024
+  // #define WIDTH 7
 
-    MEMORYSTATUSEX statex;
+  //   MEMORYSTATUSEX statex;
+  //   statex.dwLength = sizeof(statex);
+  //   GlobalMemoryStatusEx(&statex);
 
-    statex.dwLength = sizeof(statex);
+  //   wtrace_debug(L"There is  %*ld percent of memory in use.\n", WIDTH, statex.dwMemoryLoad);
+  //   wtrace_debug(L"There are %*I64d total KB of physical memory.\n", WIDTH, statex.ullTotalPhys / DIV);
+  //   wtrace_debug(L"There are %*I64d free  KB of physical memory.\n", WIDTH, statex.ullAvailPhys / DIV);
+  //   wtrace_debug(L"There are %*I64d total KB of paging file.\n", WIDTH, statex.ullTotalPageFile / DIV);
+  //   wtrace_debug(L"There are %*I64d free  KB of paging file.\n", WIDTH, statex.ullAvailPageFile / DIV);
+  //   wtrace_debug(L"There are %*I64d total KB of virtual memory.\n", WIDTH, statex.ullTotalVirtual / DIV);
+  //   wtrace_debug(L"There are %*I64d free  KB of virtual memory.\n", WIDTH, statex.ullAvailVirtual / DIV);
+  //   wtrace_debug(L"There are %*I64d free  KB of extended memory.\n", WIDTH, statex.ullAvailExtendedVirtual / DIV);
 
-    GlobalMemoryStatusEx(&statex);
-
-    wtrace_debug(L"There is  %*ld percent of memory in use.\n", WIDTH, statex.dwMemoryLoad);
-    wtrace_debug(L"There are %*I64d total KB of physical memory.\n", WIDTH, statex.ullTotalPhys / DIV);
-    wtrace_debug(L"There are %*I64d free  KB of physical memory.\n", WIDTH, statex.ullAvailPhys / DIV);
-    wtrace_debug(L"There are %*I64d total KB of paging file.\n", WIDTH, statex.ullTotalPageFile / DIV);
-    wtrace_debug(L"There are %*I64d free  KB of paging file.\n", WIDTH, statex.ullAvailPageFile / DIV);
-    wtrace_debug(L"There are %*I64d total KB of virtual memory.\n", WIDTH, statex.ullTotalVirtual / DIV);
-    wtrace_debug(L"There are %*I64d free  KB of virtual memory.\n", WIDTH, statex.ullAvailVirtual / DIV);
-
-    // Show the amount of extended memory available.
-
-    wtrace_debug(L"There are %*I64d free  KB of extended memory.\n", WIDTH, statex.ullAvailExtendedVirtual / DIV);
-    // char *p = (char *) CoTaskMemAlloc(1024);
-
-    // trace_debug("p size:%lu\n", sz);
 
 #if 0
 printf("call heap summary\n");
