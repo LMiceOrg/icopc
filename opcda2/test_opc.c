@@ -276,6 +276,25 @@ void test(int size, const wchar_t *items) {
 #endif
 
 int main_test() {
+    int     item_size = 6;
+    int     item_active[6];
+    wchar_t item_id[6][OPCDA2_ITEM_ID_LEN];
+    int     surfix[6] = {1, 2, 4, 1, 2, 4};
+    int     i;
+
+    memset(item_id, item_size, 6 * OPCDA2_ITEM_ID_SIZE);
+
+    for (i = 0; i < item_size; ++i) {
+        wchar_t *id    = item_id[i];
+        item_active[i] = 1;
+
+        if (i < 3) {
+            swprintf(id, OPCDA2_ITEM_ID_LEN, L"Random.Int%d", surfix[i]);
+        } else {
+            swprintf(id, OPCDA2_ITEM_ID_LEN, L"Random.UInt%d", surfix[i]);
+        }
+    }
+
     _CrtSetDbgFlag(_CRTDBG_LEAK_CHECK_DF);
 
 #if 0
@@ -290,104 +309,73 @@ int main_test() {
   trace_debug("heap: alloc:%lu  commit: %lu reserv: %lu\n", summary.cbAllocated, summary.cbCommitted,summary.cbReserved);
 #endif
 
-    // return 0;
-
-    int     item_size = 6;
-    int     item_active[6];
-    wchar_t item_id[6][OPCDA2_ITEM_ID_LEN];
-    memset(item_id, item_size, 6 * OPCDA2_ITEM_ID_SIZE);
-    int surfix[6] = {1, 2, 4, 1, 2, 4};
-    for (int i = 0; i < item_size; ++i) {
-        item_active[i] = 1;
-        wchar_t *id    = item_id[i];
-
-        if (i < 3) {
-            swprintf(id, OPCDA2_ITEM_ID_LEN, L"Random.Int%d", surfix[i]);
-        } else {
-            swprintf(id, OPCDA2_ITEM_ID_LEN, L"Random.UInt%d", surfix[i]);
-        }
-        // wtrace_debug(L"%ls\n", id);
-    }
-
-    server_info *info_list;
-    int          size;
-    opcda2_serverlist_fetch(L"127.0.0.1", &size, &info_list);
-    printf("info_list size %d\n", size);
-    if (info_list) {
-        for (int i = 0; i < size; ++i) {
-            server_info *info = info_list + i;
-            wprintf(L"info name:%ls, user_type:%ls\n", info->prog_id, info->user_type);
-        }
-    }
-    opcda2_serverlist_clear(size, info_list);
-
-    data_list *items;
-    items = CoTaskMemAlloc(sizeof(data_list));
-    memset(items, 0, sizeof(data_list));
     {
-    server_connect *conn;
-    opcda2_server_connect(L"127.0.0.1", L"Matrikon.OPC.Simulation.1", items, &conn);
-
-
-    // /* test add group */
-    // printf("call opcda2_item_add\n");
-
-    group *grp = NULL;
-    opcda2_group_add(conn, L"group001", 1, 5000, &grp);
-    opcda2_item_add(grp, item_size, (const wchar_t *) item_id, item_active);
-    opcda2_group_add(conn, L"group002", 1, 4000, &grp);
-    opcda2_item_add(grp, item_size, (const wchar_t *) item_id, item_active);
-    opcda2_group_add(conn, L"group003", 1, 3000, &grp);
-    opcda2_item_add(grp, item_size, (const wchar_t *) item_id, item_active);
-    opcda2_group_add(conn, L"group004", 1, 2000, &grp);
-    opcda2_item_add(grp, item_size, (const wchar_t *) item_id, item_active);
-
-
-
-    // // opcda2_item_del(grp, -1, NULL);
-    // // opcda2_item_del(grp2, -1, NULL);
-
-    Sleep(10000);
-
-    // opcda2_item_del(grp, 6, item_id);
-    opcda2_server_disconnect(conn);
-    CoTaskMemFree(conn);
-
-
+        server_info *info_list;
+        int          size;
+        opcda2_serverlist_fetch(L"127.0.0.1", &size, &info_list);
+        printf("info_list size %d\n", size);
+        if (info_list) {
+            for (i = 0; i < size; ++i) {
+                server_info *info = info_list + i;
+                wprintf(L"info name:%ls, user_type:%ls\n", info->prog_id, info->user_type);
+            }
+        }
+        opcda2_serverlist_clear(size, info_list);
     }
 
-    CoTaskMemFree(items);
 
-    // for(int i=0; i<5; ++i) {
-    // trace_debug("test list group\n");
-    // test_websocket();
-    // list_group(L"127.0.0.1", L"Matrikon.OPC.Simulation.1");
-    // }
 
-    // printf("sizeof server_connect %u\n", sizeof(server_connect));
-    // printf("sizeof server_connect %u\n", sizeof(data_list));
-    // printf("sizeof variant %u\n", sizeof(VARIANT));
+    {
+        data_list *items;
+        server_connect *conn;
+        group *grp = NULL;
 
-    // trace_debug("dump leaks\n");
+        items = CoTaskMemAlloc(sizeof(data_list));
+        memset(items, 0, sizeof(data_list));
+        opcda2_server_connect(L"127.0.0.1", L"Matrikon.OPC.Simulation.1", items, &conn);
+
+        /* test add group */
+
+
+        opcda2_group_add(conn, L"group001", 1, 5000, &grp);
+        opcda2_item_add(grp, item_size, (const wchar_t *) item_id, item_active);
+        opcda2_group_add(conn, L"group002", 1, 4000, &grp);
+        opcda2_item_add(grp, item_size, (const wchar_t *) item_id, item_active);
+        opcda2_group_add(conn, L"group003", 1, 3000, &grp);
+        opcda2_item_add(grp, item_size, (const wchar_t *) item_id, item_active);
+        opcda2_group_add(conn, L"group004", 1, 2000, &grp);
+        opcda2_item_add(grp, item_size, (const wchar_t *) item_id, item_active);
+
+
+        Sleep(10000);
+
+
+        opcda2_server_disconnect(conn);
+        CoTaskMemFree(conn);
+        CoTaskMemFree(items);
+    }
+
+
     _CrtDumpMemoryLeaks();
 
-// Use to convert bytes to KB
-  // #define DIV 1024
-  // #define WIDTH 7
+#if 0
+    // Use to convert bytes to KB
+    // #define DIV 1024
+    // #define WIDTH 7
 
-  //   MEMORYSTATUSEX statex;
-  //   statex.dwLength = sizeof(statex);
-  //   GlobalMemoryStatusEx(&statex);
+    //   MEMORYSTATUSEX statex;
+    //   statex.dwLength = sizeof(statex);
+    //   GlobalMemoryStatusEx(&statex);
 
-  //   wtrace_debug(L"There is  %*ld percent of memory in use.\n", WIDTH, statex.dwMemoryLoad);
-  //   wtrace_debug(L"There are %*I64d total KB of physical memory.\n", WIDTH, statex.ullTotalPhys / DIV);
-  //   wtrace_debug(L"There are %*I64d free  KB of physical memory.\n", WIDTH, statex.ullAvailPhys / DIV);
-  //   wtrace_debug(L"There are %*I64d total KB of paging file.\n", WIDTH, statex.ullTotalPageFile / DIV);
-  //   wtrace_debug(L"There are %*I64d free  KB of paging file.\n", WIDTH, statex.ullAvailPageFile / DIV);
-  //   wtrace_debug(L"There are %*I64d total KB of virtual memory.\n", WIDTH, statex.ullTotalVirtual / DIV);
-  //   wtrace_debug(L"There are %*I64d free  KB of virtual memory.\n", WIDTH, statex.ullAvailVirtual / DIV);
-  //   wtrace_debug(L"There are %*I64d free  KB of extended memory.\n", WIDTH, statex.ullAvailExtendedVirtual / DIV);
-
+    //   wtrace_debug(L"There is  %*ld percent of memory in use.\n", WIDTH, statex.dwMemoryLoad);
+    //   wtrace_debug(L"There are %*I64d total KB of physical memory.\n", WIDTH, statex.ullTotalPhys / DIV);
+    //   wtrace_debug(L"There are %*I64d free  KB of physical memory.\n", WIDTH, statex.ullAvailPhys / DIV);
+    //   wtrace_debug(L"There are %*I64d total KB of paging file.\n", WIDTH, statex.ullTotalPageFile / DIV);
+    //   wtrace_debug(L"There are %*I64d free  KB of paging file.\n", WIDTH, statex.ullAvailPageFile / DIV);
+    //   wtrace_debug(L"There are %*I64d total KB of virtual memory.\n", WIDTH, statex.ullTotalVirtual / DIV);
+    //   wtrace_debug(L"There are %*I64d free  KB of virtual memory.\n", WIDTH, statex.ullAvailVirtual / DIV);
+    //   wtrace_debug(L"There are %*I64d free  KB of extended memory.\n", WIDTH, statex.ullAvailExtendedVirtual / DIV);
+#endif
 
 #if 0
 printf("call heap summary\n");
@@ -395,20 +383,24 @@ printf("call heap summary\n");
   HeapSummary(heap, 0, &summary);
   trace_debug("heap: alloc:%lu  commit: %lu reserv: %lu\n", summary.cbAllocated, summary.cbCommitted,summary.cbReserved);
 #endif
+
+#if 0
     //   char *p = (char *) CoTaskMemAlloc(1024);
 
     //   HeapSummary(heap, 0, &summary);
     //   trace_debug("heap: alloc:%lu  commit: %lu reserv: %lu\n", summary.cbAllocated,
     //   summary.cbCommitted,summary.cbReserved);
+#endif
     return 0;
 }
 
 #include <tlhelp32.h>
 int main() {
+    DWORD c_tid = GetCurrentThreadId();
     /* 初始化COM */
     CoInitializeEx(0, COINIT_MULTITHREADED);
 
-    DWORD c_tid = GetCurrentThreadId();
+
     trace_debug("main thread %ld\n", c_tid);
 
     for (;;) {
@@ -421,6 +413,7 @@ int main() {
         if (c == 'e') break;
 
         main_test();
+#if 0
         // trace_debug("main_test done\n");
         // DWORD         c_pid     = GetCurrentProcessId();
         // HANDLE        snap_shot = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
@@ -452,13 +445,14 @@ int main() {
         //         CloseHandle(snap_shot);
         //     }
         // }
-
+#endif
     }
     CoUninitialize();
 
     while (1) {
-        trace_debug("press e to quit\n");
         int c = getchar();
+        trace_debug("press e to quit\n");
+
         if (c == 'e') break;
     }
 

@@ -7,11 +7,7 @@
 
 #include "util_hash.h"
 
-// static item_data* opcda2_extra_insert(group* grp, item_data* data);
 
-void opcda2_data_clear(item_data* data) {
-    VariantClear(&data->value);
-}
 
 static void opcda2_group_remove_item(group* grp, int pos) {
     item_data* data     = grp->item[pos];
@@ -161,66 +157,6 @@ item_data* opcda2_data_find(data_list* datas, unsigned int handle) {
     return data;
 }
 
-// static item_data* opcda2_extra_insert(group* grp, item_data* data) {
-//     item_data* extra     = grp->datas->extra;
-//     item_data* ret       = data;
-//     int        prev      = 0;
-//     int        find_one  = 0;
-
-
-
-//     /* 1. 查找extra中的叶节点 */
-//     if (ret->next != LEAF_NODE) {
-//         /* ret->next 指向 第一个extra 记录 */
-//         prev = ret->next;
-//         ret  = extra + ret->next;
-//         for (;;) {
-//             /* 判断是否已经插入extra */
-//             if (ret->used == 1 && wcscmp(ret->id, data->id) == 0 && ret->cli_group == grp->cli_group) {
-//                 /* data已经插入extra (group_id, data_id)都相等 */
-//                 wtrace_debug(L"item(%ls) already inserted\n", ret->id);
-//                 return ret;
-//             }
-
-//             /* 找到叶节点，退出查找 */
-//             if (ret->next == LEAF_NODE) break;
-
-//             /* 指向下一个extra 记录 */
-//             prev = ret->next;
-//             ret  = extra + ret->next;
-//         }
-//     }
-
-//     /* 2. 查找extra 中未使用的元素位置 */
-//     for (int i = 1; i < OPCDA2_EXTRA_DATA_MAX; ++i) {
-//         item_data* p = extra + i;
-//         if (p->used == OPCDA2_NOTUSE) {
-//             /* ret:父节点 p:叶节点 */
-//             VariantClear(&p->value);
-//             memset(p, 0, sizeof(item_data));
-
-//             ret->next = i; /* 修改父节点的next */
-
-//             p->next   = 0;             /* 修改叶节点的next(0) */
-//             p->prev   = prev;       /* 修改叶节点的prev(ret) */
-//             p->handle = (1 << 16) + i; /* 修改叶节点 handle 指向 extra */
-
-//             ret        = p; /* ret 指向 p （ret成为页节点）*/
-//             find_one   = 1;
-//             break;
-//         }
-//     }
-
-//     /* 3. 处理extra中未找到空闲元素的情况 */
-//     if (find_one == 0) {
-//         /* extra full, failed!*/
-//         trace_debug("item data list full, cannot add items!\n");
-//         ret = NULL;
-//     }
-
-//     return ret;
-// }
-
 int opcda2_group_advise_callback(group* grp, IUnknown* cb) {
     int     ret = 0;
     HRESULT hr;
@@ -246,7 +182,8 @@ void opcda2_group_unadvise_callback(group* grp) {
 }
 
 int opcda2_item_find(group* grp, const wchar_t* id) {
-    for (int i = 0; i < grp->item_size; ++i) {
+    int i;
+    for (i = 0; i < grp->item_size; ++i) {
         item_data* item = grp->item[i];
         if (wcscmp(item->id, id) == 0) {
             return 1;
@@ -263,6 +200,7 @@ int opcda2_item_add(group* grp, int size, const wchar_t* item_ids, int* active) 
     HRESULT*       item_hr     = NULL;
     int            item_cnt;
     int            grp_item_base;
+    int i;
 
     item_def = (OPCITEMDEF*) CoTaskMemAlloc(sizeof(OPCITEMDEF) * size);
     memset(item_def, 0, sizeof(OPCITEMDEF) * size);
@@ -270,7 +208,7 @@ int opcda2_item_add(group* grp, int size, const wchar_t* item_ids, int* active) 
     item_cnt      = 0;
     grp_item_base = grp->item_size;
 
-    for (int i = 0; i < size; ++i) {
+    for (i = 0; i < size; ++i) {
         unsigned int   hval;
         unsigned int hash;
         unsigned int handle;
@@ -323,7 +261,7 @@ int opcda2_item_add(group* grp, int size, const wchar_t* item_ids, int* active) 
     if (SUCCEEDED(hr)) {
         if (hr == S_FALSE) {
             trace_debug("some item cannot be added\n");
-            for (int i = 0; i < item_cnt; ++i) {
+            for (i = 0; i < item_cnt; ++i) {
                 wtrace_debug(L"validate item(%ls) hr 0x%lX\n", item_def[i].szItemID, item_hr[i]);
             }
         } else {
@@ -360,7 +298,7 @@ int opcda2_item_add(group* grp, int size, const wchar_t* item_ids, int* active) 
             trace_debug("all items added\n");
         }
 
-        for (int i = item_cnt - 1; i >= 0; --i) {
+        for (i = item_cnt - 1; i >= 0; --i) {
             unsigned int handle;
             item_data*   data;
 
@@ -419,7 +357,8 @@ int opcda2_item_del(group* grp, int size, const wchar_t* item_ids) {
     OPCHANDLE*     remove_item = NULL;
     int*           item_pos;
     int            remove_size;
-
+    int i;
+    int j;
     /* group为空 */
     if (grp->item_size == 0) return 0;
 
@@ -430,14 +369,14 @@ int opcda2_item_del(group* grp, int size, const wchar_t* item_ids) {
 
     /* size == -1 ==> 清空全部 */
     /* 在group.item 中查找 */
-    for (int i = grp->item_size - 1; i >= 0; --i) {
+    for ( i = grp->item_size - 1; i >= 0; --i) {
         item_data* data = grp->item[i];
         if (size == OPCDA2_ITEM_ALL) {
             item_pos[remove_size]    = i;
             remove_item[remove_size] = data->svr_handle;
             remove_size++;
         } else {
-            for (int j = 0; j < size; ++j) {
+            for (j = 0; j < size; ++j) {
                 const wchar_t* id = item_ids + j * OPCDA2_ITEM_ID_LEN;
                 if (wcscmp(data->id, id) == 0) {
                     item_pos[remove_size]    = i;
@@ -458,7 +397,7 @@ int opcda2_item_del(group* grp, int size, const wchar_t* item_ids) {
         } else if (hr == S_FALSE) {
             trace_debug("remove item %d false\n", remove_size);
         }
-        for (int i = 0; i < remove_size; ++i) {
+        for (i = 0; i < remove_size; ++i) {
             wtrace_debug(L"item(%ls) remove %lx\n", grp->item[i]->id, item_hr[i]);
             if (item_hr[i] == S_OK) {
                 int pos = item_pos[i];
@@ -484,6 +423,9 @@ int opcda2_item_write(group* grp, int size, const wchar_t* item_ids, const VARIA
     HRESULT*   item_hr         = NULL;
     OPCHANDLE* item_svr_handle = NULL;
     VARIANT*   item_new_value  = NULL;
+    int id_idx;
+    int itm_idx;
+    int i;
 
     if (!grp->async_io2) {
         return ret;
@@ -493,10 +435,10 @@ int opcda2_item_write(group* grp, int size, const wchar_t* item_ids, const VARIA
     item_hr         = (HRESULT*) CoTaskMemAlloc(sizeof(HRESULT) * size);
     item_svr_handle = (OPCHANDLE*) CoTaskMemAlloc(sizeof(OPCHANDLE) * size);
     item_size       = 0;
-    for (int id_idx = 0; id_idx < size; ++id_idx) {
+    for (id_idx = 0; id_idx < size; ++id_idx) {
         const wchar_t* id         = item_ids + id_idx * OPCDA2_ITEM_ID_LEN;
         OPCHANDLE     svr_handle = 0;
-        for (int itm_idx = 0; itm_idx < grp->item_size; ++itm_idx) {
+        for (itm_idx = 0; itm_idx < grp->item_size; ++itm_idx) {
             item_data* item = grp->item[itm_idx];
             if (wcscmp(id, item->id) == 0) {
                 svr_handle = item->svr_handle;
@@ -511,7 +453,7 @@ int opcda2_item_write(group* grp, int size, const wchar_t* item_ids, const VARIA
             if (item_new_value == NULL) {
                 item_new_value = CoTaskMemAlloc(sizeof(VARIANT) * size);
                 memset(item_new_value, 0, sizeof(VARIANT) * size);
-                for (int i = 0; i < item_size; ++i) {
+                for (i = 0; i < item_size; ++i) {
                     VariantCopy(item_new_value + i,  (VARIANT*)(item_values + i));
                 }
             }
