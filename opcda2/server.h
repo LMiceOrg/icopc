@@ -26,10 +26,11 @@ typedef struct server_info {
     LPOLESTR  user_type;
 } server_info;
 
-typedef wchar_t item_id[32];
+#define OPCDA2_ITEM_ID_LEN 32
+#define OPCDA2_ITEM_ID_SIZE (sizeof(wchar_t)*OPCDA2_ITEM_ID_LEN)
 
 typedef struct item_info {
-    item_id id;
+    wchar_t id[OPCDA2_ITEM_ID_SIZE];
 } item_info;
 
 typedef struct server_connect {

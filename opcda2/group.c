@@ -263,11 +263,9 @@ int opcda2_item_add(group* grp, int size, const wchar_t* item_ids, int* active) 
     HRESULT*       item_hr     = NULL;
     int            item_cnt;
     int            grp_item_base;
-    wchar_t*       nul_str;
 
-    item_def = (OPCITEMDEF*) CoTaskMemAlloc(sizeof(OPCITEMDEF) * size + sizeof(wchar_t) * 4);
+    item_def = (OPCITEMDEF*) CoTaskMemAlloc(sizeof(OPCITEMDEF) * size);
     memset(item_def, 0, sizeof(OPCITEMDEF) * size);
-    nul_str = (wchar_t*) ((char*) item_def + sizeof(OPCITEMDEF) * size);
 
     item_cnt      = 0;
     grp_item_base = grp->item_size;
@@ -280,7 +278,7 @@ int opcda2_item_add(group* grp, int size, const wchar_t* item_ids, int* active) 
         const wchar_t* id;
         item_data*     data;
 
-        id     = item_ids + i*32;
+        id     = item_ids + i * OPCDA2_ITEM_ID_LEN;
         id_len = wcslen(id);
         hval   = eal_hash32_fnv1a_more(id, id_len*sizeof(wchar_t), grp->hash);
         hash   = eal_hash32_to16(hval);
@@ -303,11 +301,10 @@ int opcda2_item_add(group* grp, int size, const wchar_t* item_ids, int* active) 
         data->cli_group         = grp->cli_group;
         data->svr_handle        = 0;
         data->active            = active[i];
-        memset(data->id, 0, sizeof(item_id));
+        memset(data->id, 0, OPCDA2_ITEM_ID_SIZE);
         memcpy(data->id, id, id_len * sizeof(wchar_t));
 
         /* 插入 item_def 列表 */
-        item_def[item_cnt].szAccessPath = nul_str;
         item_def[item_cnt].szItemID     = data->id;
         item_def[item_cnt].bActive      = data->active;
         item_def[item_cnt].hClient      = data->handle;
@@ -327,7 +324,7 @@ int opcda2_item_add(group* grp, int size, const wchar_t* item_ids, int* active) 
         if (hr == S_FALSE) {
             trace_debug("some item cannot be added\n");
             for (int i = 0; i < item_cnt; ++i) {
-                wtrace_debug(L"validate item(%ls) hr %ld\n", item_def[i].szItemID, item_hr[i]);
+                wtrace_debug(L"validate item(%ls) hr 0x%lX\n", item_def[i].szItemID, item_hr[i]);
             }
         } else {
             trace_debug("all items(%d) can be added\n", item_cnt);
@@ -342,7 +339,7 @@ int opcda2_item_add(group* grp, int size, const wchar_t* item_ids, int* active) 
             item_hr = NULL;
         }
     } else {
-        trace_debug("All items cannot be added 0x%lx\n", hr);
+        trace_debug("All items cannot be added 0x%lX\n", hr);
         if (item_result) {
             CoTaskMemFree(item_result);
             item_result = NULL;
@@ -441,7 +438,7 @@ int opcda2_item_del(group* grp, int size, const wchar_t* item_ids) {
             remove_size++;
         } else {
             for (int j = 0; j < size; ++j) {
-                const wchar_t* id = item_ids + j * 32;
+                const wchar_t* id = item_ids + j * OPCDA2_ITEM_ID_LEN;
                 if (wcscmp(data->id, id) == 0) {
                     item_pos[remove_size]    = i;
                     remove_item[remove_size] = data->svr_handle;
@@ -478,7 +475,60 @@ int opcda2_item_del(group* grp, int size, const wchar_t* item_ids) {
     return 0;
 }
 
+int opcda2_item_write(group* grp, int size, const wchar_t* item_ids, const VARIANT* item_values) {
+    int        ret             = 1;
+    HRESULT    hr              = 0;
+    int        item_size       = 0;
+    DWORD      cancel_id       = 0;
+    DWORD      trans_id        = 2;
+    HRESULT*   item_hr         = NULL;
+    OPCHANDLE* item_svr_handle = NULL;
+    VARIANT*   item_new_value  = NULL;
 
-// int opcda2_item_write(group* grp, int size, const wchar_t* item_ids, const VARIANT* item_values) {
+    if (!grp->async_io2) {
+        return ret;
+    }
+    if (size <= 0) return ret;
 
-// }
+    item_hr         = (HRESULT*) CoTaskMemAlloc(sizeof(HRESULT) * size);
+    item_svr_handle = (OPCHANDLE*) CoTaskMemAlloc(sizeof(OPCHANDLE) * size);
+    item_size       = 0;
+    for (int id_idx = 0; id_idx < size; ++id_idx) {
+        const wchar_t* id         = item_ids + id_idx * OPCDA2_ITEM_ID_LEN;
+        OPCHANDLE     svr_handle = 0;
+        for (int itm_idx = 0; itm_idx < grp->item_size; ++itm_idx) {
+            item_data* item = grp->item[itm_idx];
+            if (wcscmp(id, item->id) == 0) {
+                svr_handle = item->svr_handle;
+                break;
+            }
+        }
+        if (svr_handle) {
+            item_svr_handle[item_size] = svr_handle;
+            if (item_new_value) VariantCopy(item_new_value + item_size, (VARIANT*)(item_values + id_idx));
+            ++item_size;
+        } else {
+            if (item_new_value == NULL) {
+                item_new_value = CoTaskMemAlloc(sizeof(VARIANT) * size);
+                memset(item_new_value, 0, sizeof(VARIANT) * size);
+                for (int i = 0; i < item_size; ++i) {
+                    VariantCopy(item_new_value + i,  (VARIANT*)(item_values + i));
+                }
+            }
+        }
+    }
+    if (item_new_value) {
+        hr = grp->async_io2->lpVtbl->Write(grp->async_io2, item_size, item_svr_handle, item_new_value, trans_id, &cancel_id,
+                                           &item_hr);
+        CoTaskMemFree(item_new_value);
+    } else {
+        hr = grp->async_io2->lpVtbl->Write(grp->async_io2, size, item_svr_handle, item_new_value, trans_id, &cancel_id,
+                                           &item_hr);
+    }
+    if (SUCCEEDED(hr)) {
+        ret = 0;
+    }
+    CoTaskMemFree(item_hr);
+    CoTaskMemFree(item_svr_handle);
+    return ret;
+}

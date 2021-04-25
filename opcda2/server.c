@@ -217,8 +217,8 @@ int opcda2_server_connect(const wchar_t *host, const wchar_t *prog_id, data_list
                 for (unsigned i = 0; i < count; ++i) {
                     LPOLESTR str = strs[i];
                     if (str == NULL) continue;
-                    if (wcslen(str) >= 32) {
-                        wtrace_debug(L"item(%ls) length >= 32\n", str);
+                    if (wcslen(str) >= OPCDA2_ITEM_ID_LEN) {
+                        wtrace_debug(L"item id(%ls) length >= 32\n", str);
                         continue;
                     }
                     wcscpy(c->item_list[c->item_size].id, str);

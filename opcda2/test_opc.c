@@ -277,7 +277,6 @@ void test(int size, const wchar_t *items) {
 
 int main_test() {
     _CrtSetDbgFlag(_CRTDBG_LEAK_CHECK_DF);
-    trace_debug("item id size %u\n", sizeof(item_id));
 
 #if 0
   HEAP_SUMMARY summary;
@@ -295,17 +294,17 @@ int main_test() {
 
     int     item_size = 6;
     int     item_active[6];
-    wchar_t item_id[6][32];
-    memset(item_id, item_size, 6 * 32 * sizeof(wchar_t));
+    wchar_t item_id[6][OPCDA2_ITEM_ID_LEN];
+    memset(item_id, item_size, 6 * OPCDA2_ITEM_ID_SIZE);
     int surfix[6] = {1, 2, 4, 1, 2, 4};
     for (int i = 0; i < item_size; ++i) {
         item_active[i] = 1;
         wchar_t *id    = item_id[i];
 
         if (i < 3) {
-            swprintf(id, 32, L"Random.Int%d", surfix[i]);
+            swprintf(id, OPCDA2_ITEM_ID_LEN, L"Random.Int%d", surfix[i]);
         } else {
-            swprintf(id, 32, L"Random.UInt%d", surfix[i]);
+            swprintf(id, OPCDA2_ITEM_ID_LEN, L"Random.UInt%d", surfix[i]);
         }
         // wtrace_debug(L"%ls\n", id);
     }
@@ -337,18 +336,18 @@ int main_test() {
     opcda2_group_add(conn, L"group001", 1, 5000, &grp);
     opcda2_item_add(grp, item_size, (const wchar_t *) item_id, item_active);
     opcda2_group_add(conn, L"group002", 1, 4000, &grp);
-    // opcda2_item_add(grp, item_size, (const wchar_t *) item_id, item_active);
+    opcda2_item_add(grp, item_size, (const wchar_t *) item_id, item_active);
     opcda2_group_add(conn, L"group003", 1, 3000, &grp);
-    // opcda2_item_add(grp, item_size, (const wchar_t *) item_id, item_active);
+    opcda2_item_add(grp, item_size, (const wchar_t *) item_id, item_active);
     opcda2_group_add(conn, L"group004", 1, 2000, &grp);
-    // opcda2_item_add(grp, item_size, (const wchar_t *) item_id, item_active);
+    opcda2_item_add(grp, item_size, (const wchar_t *) item_id, item_active);
 
 
 
     // // opcda2_item_del(grp, -1, NULL);
     // // opcda2_item_del(grp2, -1, NULL);
 
-    Sleep(1000);
+    Sleep(10000);
 
     // opcda2_item_del(grp, 6, item_id);
     opcda2_server_disconnect(conn);
