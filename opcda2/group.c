@@ -307,6 +307,7 @@ int opcda2_item_add(group* grp, int size, const wchar_t* item_ids, int* active) 
         item_def[item_cnt].szItemID = data->id;
         item_def[item_cnt].bActive  = data->active;
         item_def[item_cnt].hClient  = data->handle;
+        item_def[item_cnt].vtRequestedDataType  =VT_I4;
         item_cnt++;
 
         /* 插入 group item 列表 */
@@ -353,7 +354,9 @@ int opcda2_item_add(group* grp, int size, const wchar_t* item_ids, int* active) 
             hr     = item_hr[i];
             handle = item_def[i].hClient;
             data   = opcda2_data(grp->datas, handle);
-            wtrace_debug(L"add item(%ls) hr %ld\n", item_def[i].szItemID, item_hr[i]);
+            wtrace_debug(L"add item(%ls) hr %ld type ask[%d] ret[%d]\n", item_def[i].szItemID, item_hr[i],
+            item_def[i].vtRequestedDataType, item_result[i].vtCanonicalDataType
+            );
             if (hr == S_OK) {
                 /*Server 确认插入成功， 设置字段*/
                 data->svr_handle = item_result[i].hServer;

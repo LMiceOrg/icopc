@@ -18,4 +18,6 @@
 // #define wtrace_debug(format, ...)
 // #endif
 
+#define CoMemory
+
 #endif  /** OPCDA2_TRACE_H_ */

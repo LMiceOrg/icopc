@@ -138,14 +138,21 @@ HRESULT STDMETHODCALLTYPE callback_OnDataChange(IOPCDataCallback *             s
     for (DWORD i = 0; i < dwCount; ++i) {
         unsigned int handle = phClientItems[i];
         item_data *  data;
-        data = opcda2_data_find(base->datas, handle);
-        if (data == NULL) continue;
+
+        if (handle >= OPCDA2_ITEM_DATA_MAX + OPCDA2_EXTRA_DATA_MAX) continue;
+
+        data = opcda2_data(base->datas, handle);
 
         VariantClear(&data->value);
         VariantCopy(&data->value, pvValues + i);
         memcpy(&(data->ts), pftTimeStamps, sizeof(FILETIME));
-
-        wtrace_debug(L"\t item[%X]: %ls,\tivalue: %d\n", handle, data->id, data->value.intVal);
+        if (data->value.vt == VT_R8) {
+            wtrace_debug(L" item[%X]: %ls,\t[%d]ivalue: %.04lf, quality:%d, hr:%ld\n", handle, data->id,
+                         data->value.vt, data->value.dblVal, pwQualities[i], pErrors[i]);
+        } else {
+            wtrace_debug(L" item[%X]: %ls,\t[%d]ivalue: %d, quality:%d, hr:%ld\n", handle, data->id, data->value.vt,
+                         data->value.intVal, pwQualities[i], pErrors[i]);
+        }
     }
     return S_OK;
 }
@@ -168,14 +175,22 @@ HRESULT STDMETHODCALLTYPE callback_OnReadComplete(IOPCDataCallback *            
     for (DWORD i = 0; i < dwCount; ++i) {
         unsigned int handle = phClientItems[i];
         item_data *  data;
-        data = opcda2_data_find(base->datas, handle);
-        if (data == NULL) continue;
+
+        if (handle >= OPCDA2_ITEM_DATA_MAX + OPCDA2_EXTRA_DATA_MAX) continue;
+
+        data = opcda2_data(base->datas, handle);
 
         VariantClear(&data->value);
         VariantCopy(&data->value, pvValues + i);
         memcpy(&(data->ts), pftTimeStamps, sizeof(FILETIME));
 
-        wtrace_debug(L"\t item: %ls,\tivalue: %d\n", data->id, data->value.intVal);
+        if (data->value.vt == VT_R8) {
+            wtrace_debug(L" item[%X]: %ls,\t[%d]ivalue: %.04lf, quality:%d, hr:%ld\n", handle, data->id,
+                         data->value.vt, data->value.dblVal, pwQualities[i], pErrors[i]);
+        } else {
+            wtrace_debug(L" item[%X]: %ls,\t[%d]ivalue: %d, quality:%d, hr:%ld\n", handle, data->id, data->value.vt,
+                         data->value.intVal, pwQualities[i], pErrors[i]);
+        }
     }
     return S_OK;
 }

@@ -534,7 +534,8 @@ int opcda2_group_add(server_connect *conn, const wchar_t *name, int active, int 
     new_grp->rate       = svr_rate;
     new_grp->conn       = conn;
     new_grp->datas      = conn->datas;
-    new_grp->cli_group = cli_group;
+    new_grp->item_size  = 0;
+    new_grp->cli_group  = cli_group;
     new_grp->svr_handle = svr_handle;
     new_grp->grp_mgt    = grp_mgt;
     new_grp->itm_mgt    = itm_mgt;
@@ -549,17 +550,17 @@ int opcda2_group_add(server_connect *conn, const wchar_t *name, int active, int 
     conn->grp_size++;
 
     /* 注册 callback */
-    if (conn->callback) {
-        cp->lpVtbl->Advise(cp, conn->callback, &new_grp->cookie);
-    }
+    opcda2_group_advise_callback(new_grp, conn->callback);
+
 
     *grp = new_grp;
     ret  = 0;
 
 clean_up:
+    if (cp_ter) cp_ter->lpVtbl->Release(cp_ter);
+
     if (ret) {
         if (cp) cp->lpVtbl->Release(cp);
-        if (cp_ter) cp_ter->lpVtbl->Release(cp_ter);
         if (itm_mgt) itm_mgt->lpVtbl->Release(itm_mgt);
         if (grp_mgt) grp_mgt->lpVtbl->Release(grp_mgt);
         if (async_io2) async_io2->lpVtbl->Release(async_io2);

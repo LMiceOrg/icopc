@@ -2,15 +2,14 @@
 #include <crtdbg.h>
 #include <sysinfoapi.h>
 
+#include <stddef.h>
 #include <stdio.h>
 #include <string.h>
-#include <stddef.h>
 
 #include "opcda2_all.h"
 
-#include "trace.h"
 #include "server.h"
-
+#include "trace.h"
 
 #if 0
 void test_websocet();
@@ -154,11 +153,11 @@ clean_up:
   }
 }
 
-#define container_of(ptr, type, member)                                        \
-  ({                                                                           \
-    const typeof(((type *)0)->member) *__mptr = (ptr);                         \
-    (type *)((char *)__mptr - offsetof(type, member));                         \
-  })
+#define container_of(ptr, type, member)                      \
+    ({                                                       \
+        const typeof(((type *) 0)->member) *__mptr = (ptr);  \
+        (type *) ((char *) __mptr - offsetof(type, member)); \
+    })
 
 void list_group(const wchar_t *host, const wchar_t *prog_id) {
   HRESULT hr;
@@ -276,166 +275,205 @@ void test(int size, const wchar_t *items) {
 }
 #endif
 
-int main() {
-  _CrtSetDbgFlag(_CRTDBG_REPORT_FLAG);
-  trace_debug("item id size %u\n", sizeof(item_id));
-  // return 0;
-  /* 初始化COM */
-  CoInitializeEx(0, COINIT_MULTITHREADED);
+int main_test() {
+    _CrtSetDbgFlag(_CRTDBG_LEAK_CHECK_DF);
+    trace_debug("item id size %u\n", sizeof(item_id));
 
-  int     item_size = 6;
-  int     item_active[6];
-  wchar_t item_id[6][32];
-  memset(item_id, item_size, 6 * 32 * sizeof(wchar_t));
-  int surfix[6] = {1, 2, 4, 1, 2, 4};
-  for (int i = 0; i < item_size; ++i) {
-      item_active[i] = 1;
-      wchar_t *id    = item_id[i];
+#if 0
+  HEAP_SUMMARY summary;
+  memset(&summary, 0, sizeof(summary));
+  summary.cb = sizeof(HEAP_SUMMARY);
+   HANDLE heap = GetProcessHeap();
 
-      if (i < 3) {
-          swprintf(id, 32, L"Random.Int%d", surfix[i]);
-      } else {
-          swprintf(id, 32, L"Random.UInt%d", surfix[i]);
-      }
-      // wtrace_debug(L"%ls\n", id);
-  }
+   printf("call heap summary\n");
 
-  server_info *info_list;
-  int size;
-  opcda2_serverlist_fetch(L"127.0.0.1", &size, &info_list);
-  printf("info_list size %d\n", size);
-  if (info_list) {
-    for (int i = 0; i < size; ++i) {
-      server_info* info = info_list + i;
-      wprintf(L"info name:%ls, user_type:%ls\n", info->prog_id, info->user_type);
+  HeapSummary(heap, 0, &summary);
+  trace_debug("heap: alloc:%lu  commit: %lu reserv: %lu\n", summary.cbAllocated, summary.cbCommitted,summary.cbReserved);
+#endif
+
+    // return 0;
+
+    int     item_size = 6;
+    int     item_active[6];
+    wchar_t item_id[6][32];
+    memset(item_id, item_size, 6 * 32 * sizeof(wchar_t));
+    int surfix[6] = {1, 2, 4, 1, 2, 4};
+    for (int i = 0; i < item_size; ++i) {
+        item_active[i] = 1;
+        wchar_t *id    = item_id[i];
+
+        if (i < 3) {
+            swprintf(id, 32, L"Random.Int%d", surfix[i]);
+        } else {
+            swprintf(id, 32, L"Random.UInt%d", surfix[i]);
+        }
+        // wtrace_debug(L"%ls\n", id);
     }
-  }
-  opcda2_serverlist_clear(size, info_list);
 
-  data_list* items;
-  items = CoTaskMemAlloc(sizeof(data_list));
-  memset(items, 0, sizeof(data_list));
+    server_info *info_list;
+    int          size;
+    opcda2_serverlist_fetch(L"127.0.0.1", &size, &info_list);
+    printf("info_list size %d\n", size);
+    if (info_list) {
+        for (int i = 0; i < size; ++i) {
+            server_info *info = info_list + i;
+            wprintf(L"info name:%ls, user_type:%ls\n", info->prog_id, info->user_type);
+        }
+    }
+    opcda2_serverlist_clear(size, info_list);
 
-  server_connect *conn;
-  opcda2_server_connect(L"127.0.0.1", L"Matrikon.OPC.Simulation.1", items, &conn);
-
-
-  // for(int i=0; i<conn->item_size; ++i) {
-  //   wprintf(L"item %d: %ls\n", i, conn->item_list[i].id);
-  // }
-
-  // trace_debug("testing callback\n");
-  // IUnknown *cb;
-  // opcda2_callback_create(conn, &cb);
-
-  // opcda2_server_advise(conn, cb);
-
+    data_list *items;
+    items = CoTaskMemAlloc(sizeof(data_list));
+    memset(items, 0, sizeof(data_list));
+    {
+    server_connect *conn;
+    opcda2_server_connect(L"127.0.0.1", L"Matrikon.OPC.Simulation.1", items, &conn);
 
 
-  // cb->lpVtbl->Release(cb);
+    // /* test add group */
+    // printf("call opcda2_item_add\n");
 
-  /* test add group */
-  printf("call opcda2_item_add\n");
+    group *grp = NULL;
+    opcda2_group_add(conn, L"group001", 1, 5000, &grp);
 
-  group *grp = NULL;
-  opcda2_group_add(conn, L"group001", 1, 5000, &grp);
+    // group *grp2 = NULL;
+    // opcda2_group_add(conn, L"group002", 1, 2500, &grp2);
 
-  group *grp2 = NULL;
-  opcda2_group_add(conn, L"group002", 1, 2500, &grp2);
+    // opcda2_item_add(grp, item_size, (const wchar_t *) item_id, item_active);
 
-  opcda2_item_add(grp, item_size, (const wchar_t*)item_id, item_active);
+    // opcda2_item_add(grp2, item_size, (const wchar_t *) item_id, item_active);
 
-  opcda2_item_add(grp2, item_size, (const wchar_t*)item_id, item_active);
+    // group *grp3 = NULL;
+    // opcda2_group_add(conn, L"group003", 1, 2500, &grp3);
+    // opcda2_item_add(grp3, 1, (const wchar_t *) item_id, item_active);
 
- group *grp3 = NULL;
- opcda2_group_add(conn, L"group003", 1, 2500, &grp3);
- opcda2_item_add(grp3, 1, (const wchar_t*)item_id, item_active);
+    // // opcda2_item_del(grp, -1, NULL);
+    // // opcda2_item_del(grp2, -1, NULL);
 
+    Sleep(1000);
 
+    // opcda2_item_del(grp, 6, item_id);
+    trace_debug("conn %p\n", (void *) conn);
+    trace_debug("*conn %p\n", (void *) &conn);
+    opcda2_server_disconnect(conn);
+    CoTaskMemFree(conn);
+    trace_debug("conn %p\n", (void *) conn);
+    trace_debug("*conn %p\n", (void *) &conn);
 
-  //opcda2_item_del(grp, -1, NULL);
-  //opcda2_item_del(grp2, -1, NULL);
+    }
 
+    CoTaskMemFree(items);
 
+    // for(int i=0; i<5; ++i) {
+    // trace_debug("test list group\n");
+    // test_websocket();
+    // list_group(L"127.0.0.1", L"Matrikon.OPC.Simulation.1");
+    // }
 
+    printf("sizeof server_connect %u\n", sizeof(server_connect));
+    printf("sizeof server_connect %u\n", sizeof(data_list));
+    printf("sizeof variant %u\n", sizeof(VARIANT));
 
-  getchar();
-  // opcda2_item_del(grp, 6, item_id);
-  trace_debug("conn %p\n", (void*)conn);
-  trace_debug("*conn %p\n", (void*)&conn);
-  opcda2_server_disconnect(conn);
-  CoTaskMemFree(conn);
-  trace_debug("conn %p\n", (void*)conn);
-  trace_debug("*conn %p\n", (void*)&conn);
-  //CoTaskMemFree(conn);
-  size_t sz = GlobalSize(conn);
-  trace_debug("conn size:%u\n", sz);
-
-  CoTaskMemFree(items);
-
-// for(int i=0; i<5; ++i) {
-  // trace_debug("test list group\n");
-  // test_websocket();
-  // list_group(L"127.0.0.1", L"Matrikon.OPC.Simulation.1");
-// }
-
-printf("sizeof server_connect %u\n", sizeof(server_connect));
-printf("sizeof server_connect %u\n", sizeof(data_list));
-printf("sizeof variant %u\n", sizeof(VARIANT));
-  CoUninitialize();
-
-trace_debug("dump leaks\n");
-_CrtDumpMemoryLeaks();
-
+    trace_debug("dump leaks\n");
+    _CrtDumpMemoryLeaks();
 
 // Use to convert bytes to KB
 #define DIV 1024
 #define WIDTH 7
 
-MEMORYSTATUSEX statex;
+    MEMORYSTATUSEX statex;
 
-  statex.dwLength = sizeof (statex);
+    statex.dwLength = sizeof(statex);
 
-  GlobalMemoryStatusEx (&statex);
+    GlobalMemoryStatusEx(&statex);
 
-  wtrace_debug (L"There is  %*ld percent of memory in use.\n",
-            WIDTH, statex.dwMemoryLoad);
-  wtrace_debug (L"There are %*I64d total KB of physical memory.\n",
-            WIDTH, statex.ullTotalPhys/DIV);
-  wtrace_debug (L"There are %*I64d free  KB of physical memory.\n",
-            WIDTH, statex.ullAvailPhys/DIV);
-  wtrace_debug (L"There are %*I64d total KB of paging file.\n",
-            WIDTH, statex.ullTotalPageFile/DIV);
-  wtrace_debug (L"There are %*I64d free  KB of paging file.\n",
-            WIDTH, statex.ullAvailPageFile/DIV);
-  wtrace_debug (L"There are %*I64d total KB of virtual memory.\n",
-            WIDTH, statex.ullTotalVirtual/DIV);
-  wtrace_debug (L"There are %*I64d free  KB of virtual memory.\n",
-            WIDTH, statex.ullAvailVirtual/DIV);
+    wtrace_debug(L"There is  %*ld percent of memory in use.\n", WIDTH, statex.dwMemoryLoad);
+    wtrace_debug(L"There are %*I64d total KB of physical memory.\n", WIDTH, statex.ullTotalPhys / DIV);
+    wtrace_debug(L"There are %*I64d free  KB of physical memory.\n", WIDTH, statex.ullAvailPhys / DIV);
+    wtrace_debug(L"There are %*I64d total KB of paging file.\n", WIDTH, statex.ullTotalPageFile / DIV);
+    wtrace_debug(L"There are %*I64d free  KB of paging file.\n", WIDTH, statex.ullAvailPageFile / DIV);
+    wtrace_debug(L"There are %*I64d total KB of virtual memory.\n", WIDTH, statex.ullTotalVirtual / DIV);
+    wtrace_debug(L"There are %*I64d free  KB of virtual memory.\n", WIDTH, statex.ullAvailVirtual / DIV);
 
-  // Show the amount of extended memory available.
+    // Show the amount of extended memory available.
 
-  wtrace_debug (L"There are %*I64d free  KB of extended memory.\n",
-            WIDTH, statex.ullAvailExtendedVirtual/DIV);
-// char *p = (char *) CoTaskMemAlloc(1024);
+    wtrace_debug(L"There are %*I64d free  KB of extended memory.\n", WIDTH, statex.ullAvailExtendedVirtual / DIV);
+    // char *p = (char *) CoTaskMemAlloc(1024);
 
-// trace_debug("p size:%lu\n", sz);
+    // trace_debug("p size:%lu\n", sz);
 
-// HEAP_SUMMARY summary;
-// memset(&summary, 0, sizeof(summary));
-//   summary.cb = sizeof(HEAP_SUMMARY);
-//    HANDLE heap = GetProcessHeap();
+#if 0
+printf("call heap summary\n");
 
-// printf("call heap summary\n");
+  HeapSummary(heap, 0, &summary);
+  trace_debug("heap: alloc:%lu  commit: %lu reserv: %lu\n", summary.cbAllocated, summary.cbCommitted,summary.cbReserved);
+#endif
+    //   char *p = (char *) CoTaskMemAlloc(1024);
 
-//   HeapSummary(heap, 0, &summary);
-//   trace_debug("heap: alloc:%lu  commit: %lu reserv: %lu\n", summary.cbAllocated, summary.cbCommitted,summary.cbReserved);
-
-//   char *p = (char *) CoTaskMemAlloc(1024);
-
-
-//   HeapSummary(heap, 0, &summary);
-//   trace_debug("heap: alloc:%lu  commit: %lu reserv: %lu\n", summary.cbAllocated, summary.cbCommitted,summary.cbReserved);
-  return 0;
+    //   HeapSummary(heap, 0, &summary);
+    //   trace_debug("heap: alloc:%lu  commit: %lu reserv: %lu\n", summary.cbAllocated,
+    //   summary.cbCommitted,summary.cbReserved);
+    return 0;
 }
 
+#include <tlhelp32.h>
+int main() {
+    /* 初始化COM */
+    CoInitializeEx(0, COINIT_MULTITHREADED);
+
+    DWORD c_tid = GetCurrentThreadId();
+    trace_debug("main thread %ld\n", c_tid);
+
+    for (;;) {
+        int c;
+        while (1) {
+            trace_debug("for loop:press r to run, e to exit\n");
+            c = getchar();
+            if (c == 'r' || c == 'e') break;
+        }
+        if (c == 'e') break;
+
+        main_test();
+        // trace_debug("main_test done\n");
+        // DWORD         c_pid     = GetCurrentProcessId();
+        // HANDLE        snap_shot = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+        // THREADENTRY32 trd_entry;
+        // trd_entry.dwSize = sizeof(THREADENTRY32);
+        // if (snap_shot == INVALID_HANDLE_VALUE) {
+        //     trace_debug("CreateToolhelp32Snapshot failed\n");
+        // } else {
+        //     trace_debug("CreateToolhelp32Snapshot success\n");
+        //     if (!Thread32First(snap_shot, &trd_entry)) {
+        //         trace_debug("Thread32First failed\n");
+        //         CloseHandle(snap_shot);
+        //     } else {
+        //         do {
+        //             if (trd_entry.th32OwnerProcessID == c_pid) {
+        //                 trace_debug("\n     THREAD ID      = 0x%08X", trd_entry.th32ThreadID);
+        //                 if (trd_entry.th32ThreadID == c_tid) {
+        //                     trace_debug(" [main]");
+        //                 } else {
+        //                     // HANDLE trd = OpenThread(THREAD_ALL_ACCESS, FALSE, trd_entry.th32ThreadID);
+        //                     // TerminateThread(trd, 0);
+        //                     // CloseHandle(trd);
+        //                 }
+        //                 trace_debug("\n     base priority  = %d", trd_entry.tpBasePri);
+        //                 trace_debug("\n     delta priority = %d", trd_entry.tpDeltaPri);
+        //             }
+        //         } while (Thread32Next(snap_shot, &trd_entry));
+        //         trace_debug("\n");
+        //         CloseHandle(snap_shot);
+        //     }
+        // }
+
+    }
+    CoUninitialize();
+
+    while (1) {
+        trace_debug("press e to quit\n");
+        int c = getchar();
+        if (c == 'e') break;
+    }
+
+    return 0;
+}
