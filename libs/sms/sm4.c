@@ -1,3 +1,5 @@
+/** Copyright 2018, 2021 He Hao<hehaoslj@sina.com> */
+
 #include "sm4.h"
 
 #if _MSC_VER == 1200
@@ -56,7 +58,7 @@
 
 #define S32(A)                                                                 \
   ((SMS4_S[((A) >> 24)] << 24) ^ (SMS4_S[((A) >> 16) & 0xff] << 16) ^          \
-   (SMS4_S[((A) >> 8) & 0xff] << 8) ^ (SMS4_S[((A)) & 0xff]))
+  (SMS4_S[((A) >> 8) & 0xff] << 8) ^ (SMS4_S[((A)) & 0xff]))
 
 #define ROUNDS(x0, x1, x2, x3, x4)                                             \
   ROUND(x0, x1, x2, x3, x4, 0);                                                \
@@ -213,7 +215,7 @@ void sm4_encrypt(const unsigned char *in, unsigned char *out, int len,
     sms4_encrypt_block16(in_p, out_p, &skey);
     in_p += 16;
     out_p += 16;
-  };
+  }
 
   blocks = len / 16;
   if (extra) {
@@ -252,7 +254,7 @@ void sm4_decrypt(const unsigned char *in, unsigned char *out, int len,
     sms4_encrypt_block16(in_p, out_p, &skey);
     in_p += 16;
     out_p += 16;
-  };
+  }
 
   blocks = len / 16;
   if (extra) {
