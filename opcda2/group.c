@@ -256,15 +256,18 @@ int opcda2_item_find(group* grp, const wchar_t* id) {
 }
 
 int opcda2_item_add(group* grp, int size, const wchar_t* item_ids, int* active) {
-    HRESULT        hr;
+    int            ret         = 1;
+    HRESULT        hr          = S_OK;
     OPCITEMDEF*    item_def    = NULL;
     OPCITEMRESULT* item_result = NULL;
     HRESULT*       item_hr     = NULL;
     int            item_cnt;
     int            grp_item_base;
+    wchar_t*       nul_str;
 
-    item_def = (OPCITEMDEF*) CoTaskMemAlloc(sizeof(OPCITEMDEF) * size);
+    item_def = (OPCITEMDEF*) CoTaskMemAlloc(sizeof(OPCITEMDEF) * size + sizeof(wchar_t) * 4);
     memset(item_def, 0, sizeof(OPCITEMDEF) * size);
+    nul_str = (wchar_t*) ((char*) item_def + sizeof(OPCITEMDEF) * size);
 
     item_cnt      = 0;
     grp_item_base = grp->item_size;
@@ -304,10 +307,10 @@ int opcda2_item_add(group* grp, int size, const wchar_t* item_ids, int* active) 
         memcpy(data->id, id, id_len * sizeof(wchar_t));
 
         /* 插入 item_def 列表 */
-        item_def[item_cnt].szItemID = data->id;
-        item_def[item_cnt].bActive  = data->active;
-        item_def[item_cnt].hClient  = data->handle;
-        item_def[item_cnt].vtRequestedDataType  =VT_I4;
+        item_def[item_cnt].szAccessPath = nul_str;
+        item_def[item_cnt].szItemID     = data->id;
+        item_def[item_cnt].bActive      = data->active;
+        item_def[item_cnt].hClient      = data->handle;
         item_cnt++;
 
         /* 插入 group item 列表 */
@@ -330,10 +333,24 @@ int opcda2_item_add(group* grp, int size, const wchar_t* item_ids, int* active) 
             trace_debug("all items(%d) can be added\n", item_cnt);
 
         }
-        CoTaskMemFree(item_result);
-        CoTaskMemFree(item_hr);
+        if (item_result) {
+            CoTaskMemFree(item_result);
+            item_result = NULL;
+        }
+        if (item_hr) {
+            CoTaskMemFree(item_hr);
+            item_hr = NULL;
+        }
     } else {
         trace_debug("All items cannot be added 0x%lx\n", hr);
+        if (item_result) {
+            CoTaskMemFree(item_result);
+            item_result = NULL;
+        }
+        if (item_hr) {
+            CoTaskMemFree(item_hr);
+            item_hr = NULL;
+        }
         goto clean_up;
     }
 
@@ -346,8 +363,7 @@ int opcda2_item_add(group* grp, int size, const wchar_t* item_ids, int* active) 
             trace_debug("all items added\n");
         }
 
-
-        for (int i = item_cnt -1; i >= 0; --i) {
+        for (int i = item_cnt - 1; i >= 0; --i) {
             unsigned int handle;
             item_data*   data;
 
@@ -355,8 +371,7 @@ int opcda2_item_add(group* grp, int size, const wchar_t* item_ids, int* active) 
             handle = item_def[i].hClient;
             data   = opcda2_data(grp->datas, handle);
             wtrace_debug(L"add item(%ls) hr %ld type ask[%d] ret[%d]\n", item_def[i].szItemID, item_hr[i],
-            item_def[i].vtRequestedDataType, item_result[i].vtCanonicalDataType
-            );
+                         item_def[i].vtRequestedDataType, item_result[i].vtCanonicalDataType);
             if (hr == S_OK) {
                 /*Server 确认插入成功， 设置字段*/
                 data->svr_handle = item_result[i].hServer;
@@ -365,10 +380,16 @@ int opcda2_item_add(group* grp, int size, const wchar_t* item_ids, int* active) 
                 int pos = grp_item_base + i;
                 opcda2_group_remove_item(grp, pos);
             }
-
         }
-        CoTaskMemFree(item_result);
-        CoTaskMemFree(item_hr);
+
+        if (item_result) {
+            CoTaskMemFree(item_result);
+            item_result = NULL;
+        }
+        if (item_hr) {
+            CoTaskMemFree(item_hr);
+            item_hr = NULL;
+        }
 
         /* 插入成功 刷新 data value */
         if (grp->async_io2) {
@@ -379,11 +400,20 @@ int opcda2_item_add(group* grp, int size, const wchar_t* item_ids, int* active) 
         }
     } else {
         trace_debug("All items cannot added 0x%lx\n", hr);
+        if (item_result) {
+            CoTaskMemFree(item_result);
+            item_result = NULL;
+        }
+        if (item_hr) {
+            CoTaskMemFree(item_hr);
+            item_hr = NULL;
+        }
+        goto clean_up;
     }
-    return 0;
+    ret = 0;
 clean_up:
     if (item_def) CoTaskMemFree(item_def);
-    return 0;
+    return ret;
 }
 
 int opcda2_item_del(group* grp, int size, const wchar_t* item_ids) {
