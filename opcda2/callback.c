@@ -4,7 +4,7 @@
 #include "callback.h"
 #include "server.h"
 #include "group.h"
-#include "trace.h"
+#include "util_trace.h"
 
 typedef struct client_ishundown {
     struct IOPCShutdownVtbl *lpVtbl;
@@ -130,12 +130,14 @@ HRESULT STDMETHODCALLTYPE callback_OnDataChange(IOPCDataCallback *             s
                                                 /* [size_is][in] */ HRESULT *  pErrors) {
     client_interface *base;
     DWORD tid;
+    DWORD i;
 
     base = (client_interface *) (self);
     tid = GetCurrentThreadId();
 
+
     trace_debug("th[%ld] group: %lu\tOnDataChange[%lu] item count: %lu\n", tid, hGroup, dwTransid, dwCount);
-    for (DWORD i = 0; i < dwCount; ++i) {
+    for (i = 0; i < dwCount; ++i) {
         unsigned int handle = phClientItems[i];
         item_data *  data;
 
@@ -146,6 +148,7 @@ HRESULT STDMETHODCALLTYPE callback_OnDataChange(IOPCDataCallback *             s
         VariantClear(&data->value);
         VariantCopy(&data->value, pvValues + i);
         memcpy(&(data->ts), pftTimeStamps, sizeof(FILETIME));
+
         if (data->value.vt == VT_R8) {
             wtrace_debug(L" item[%X]: %ls,\t[%d]ivalue: %.04lf, quality:%d, hr:%ld\n", handle, data->id,
                          data->value.vt, data->value.dblVal, pwQualities[i], pErrors[i]);
@@ -169,10 +172,11 @@ HRESULT STDMETHODCALLTYPE callback_OnReadComplete(IOPCDataCallback *            
                                                   /* [size_is][in] */ FILETIME * pftTimeStamps,
                                                   /* [size_is][in] */ HRESULT *  pErrors) {
     client_interface *base;
+    DWORD i;
 
     base = (client_interface *) (self);
     trace_debug("group: %lu\tOnReadComplete[%lu] item count: %lu\n", hGroup, dwTransid, dwCount);
-    for (DWORD i = 0; i < dwCount; ++i) {
+    for (i = 0; i < dwCount; ++i) {
         unsigned int handle = phClientItems[i];
         item_data *  data;
 

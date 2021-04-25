@@ -2,7 +2,7 @@
 #include <stdlib.h>
 
 #include "server.h"
-#include "trace.h"
+#include "util_trace.h"
 #include "util_hash.h"
 
 static inline unsigned int salt_gen() {
@@ -37,12 +37,6 @@ int opcda2_serverlist_fetch(const wchar_t *host, int *size, server_info **info_l
     ULONG           fetched;
     MULTI_QI        qi_list[1];
     COSERVERINFO    svr_info;
-
-    /* 初始化 */
-    // server_info_list *items =
-    //     (server_info_list *)CoTaskMemAlloc(sizeof(server_info_list));
-    // memset(items, 0, sizeof(server_info_list));
-    // items->capacity = LIST_DEFAULT_CAPACIRY;
 
     *info_list = NULL;
     *size      = 0;
@@ -147,7 +141,7 @@ int opcda2_server_connect(const wchar_t *host, const wchar_t *prog_id, data_list
 
     CLSIDFromProgID(prog_id, &cls_id);
 
-#if _DEBUG
+#if 0
     OLECHAR *str_id;
     StringFromCLSID(&cls_id, &str_id);
     wtrace_debug(L"svr(%ls)  clsid: %ls\n", prog_id, str_id);
@@ -194,6 +188,7 @@ int opcda2_server_connect(const wchar_t *host, const wchar_t *prog_id, data_list
                 ULONG      count = 0;
                 item_info *new_list;
                 ULONG      mem_size;
+                unsigned i;
 
                 /* 分配内存 */
                 mem_size = sizeof(item_info) * (64 + c->item_size);
@@ -214,7 +209,7 @@ int opcda2_server_connect(const wchar_t *host, const wchar_t *prog_id, data_list
                     break;
                 }
 
-                for (unsigned i = 0; i < count; ++i) {
+                for (i = 0; i < count; ++i) {
                     LPOLESTR str = strs[i];
                     if (str == NULL) continue;
                     if (wcslen(str) >= OPCDA2_ITEM_ID_LEN) {
@@ -237,13 +232,14 @@ int opcda2_server_connect(const wchar_t *host, const wchar_t *prog_id, data_list
             for (;;) {
                 LPOLESTR strs[64];
                 ULONG    count = 0;
+                unsigned i;
 
                 hr = enum_str->lpVtbl->Next(enum_str, 64, strs, &count);
                 if (hr == S_FALSE || count == 0) {
                     break;
                 }
 
-                for (unsigned i = 0; i < count; ++i) {
+                for (i = 0; i < count; ++i) {
                     LPOLESTR str = strs[i];
                     if (str) {
                         wtrace_debug(L"item path: %ls\n", str);
@@ -287,6 +283,7 @@ clean_up:
 }
 
 void opcda2_server_disconnect(server_connect *conn) {
+    int i;
     trace_debug("call svr Release\n");
 
     /* 1. 注销 通知 Shutdown */
@@ -299,7 +296,7 @@ void opcda2_server_disconnect(server_connect *conn) {
     }
 
     /* 2. 清除 groups */
-    for (int i = 0; i < OPCDA2_SERVER_GROUP_MAX; ++i) {
+    for (i = 0; i < OPCDA2_SERVER_GROUP_MAX; ++i) {
         group *grp = conn->grp + i;
         opcda2_group_del(conn, grp);
     }
@@ -320,12 +317,13 @@ void opcda2_server_disconnect(server_connect *conn) {
 
 int opcda2_server_advise(server_connect *conn, IUnknown *cb) {
     int ret;
+    int i;
 
     /* 注册 server 通知 Shutdown */
     ret = opcda2_server_advise_shutdown(conn, cb);
 
     /* 注册 group  通知 DataCallback */
-    for (int i = 0; i < OPCDA2_SERVER_GROUP_MAX; ++i) {
+    for (i = 0; i < OPCDA2_SERVER_GROUP_MAX; ++i) {
         group *grp = conn->grp + i;
         if (grp->used) opcda2_group_advise_callback(grp, conn->callback);
     }
@@ -333,11 +331,12 @@ int opcda2_server_advise(server_connect *conn, IUnknown *cb) {
 }
 
 void opcda2_server_unadvise(server_connect*conn) {
+    int i;
     /* 取消 server 通知 Shutdown */
     opcda2_server_unadvise_shutdown(conn);
 
     /* 取消 group  通知 DataCallback */
-    for (int i = 0; i < OPCDA2_SERVER_GROUP_MAX; ++i) {
+    for (i = 0; i < OPCDA2_SERVER_GROUP_MAX; ++i) {
         group *grp = conn->grp + i;
         if (grp->used) opcda2_group_unadvise_callback(grp);
     }
@@ -456,6 +455,8 @@ int opcda2_group_add(server_connect *conn, const wchar_t *name, int active, int 
     group *                    new_grp    = NULL;
     FLOAT                      dead_band  = 0;
     const DWORD                locale_id  = 0x409; /* english */
+    int i;
+    size_t name_len;
 
     if (wcslen(name) >= 32) {
         wtrace_debug(L"group name(%ls) too long", name);
@@ -466,7 +467,7 @@ int opcda2_group_add(server_connect *conn, const wchar_t *name, int active, int 
         return ret;
     }
     /* group 是否已经存在 */
-    for (int i = 0; i < OPCDA2_SERVER_GROUP_MAX; ++i) {
+    for (i = 0; i < OPCDA2_SERVER_GROUP_MAX; ++i) {
         group *cur_grp = conn->grp + i;
         if (wcscmp(cur_grp->name, name) == 0 && cur_grp->used) {
             wtrace_debug(L"group name(%ls) already added\n", name);
@@ -515,7 +516,7 @@ int opcda2_group_add(server_connect *conn, const wchar_t *name, int active, int 
     }
 
     /* 初始化group 对象 */
-    size_t name_len = wcslen(name);
+    name_len = wcslen(name);
     memset(new_grp, 0, sizeof(group));
     memcpy(new_grp->name, name, sizeof(wchar_t) * name_len);
 

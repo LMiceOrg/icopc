@@ -1,7 +1,7 @@
 /** Copyright 2018, 2021 He Hao<hehaoslj@sina.com> */
 #include "group.h"
 #include "server.h"
-#include "trace.h"
+#include "util_trace.h"
 
 #define LEAF_NODE (0)
 

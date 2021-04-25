@@ -9,7 +9,7 @@
 #include "opcda2_all.h"
 
 #include "server.h"
-#include "trace.h"
+#include "util_trace.h"
 
 #if 0
 void test_websocet();

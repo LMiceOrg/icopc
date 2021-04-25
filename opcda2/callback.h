@@ -3,7 +3,6 @@
 #define OPCDA2_CALLBACK_H_
 
 #include "opcda2_all.h"
-#include "group.h"
 
 struct server_connect;
 

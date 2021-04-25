@@ -3,6 +3,10 @@
 #define OPCDA2_TRACE_H_
 
 #include <stdio.h>
+void trace_debug(const char* format, ...);
+void wtrace_debug(const wchar_t* format, ...);
+
+#if 0
 #if defined(_DEBUG)
 #define trace_debug(format...)                                               \
   do {                                                                         \
@@ -19,5 +23,6 @@
 #endif
 
 #define CoMemory
+#endif
 
 #endif  /** OPCDA2_TRACE_H_ */
