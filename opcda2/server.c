@@ -181,8 +181,9 @@ int opcda2_server_connect(const wchar_t *host, const wchar_t *prog_id, data_list
         trace_debug("svr OPCNAMESPACETYPE %d\n", ns);
 
         /* 3.2 获取 枚举 Itemid */
-        hr = browse->lpVtbl->BrowseOPCItemIDs(browse, OPC_FLAT, L"", VT_EMPTY, OPC_READABLE, &enum_str);
+        hr = browse->lpVtbl->BrowseOPCItemIDs(browse, OPC_FLAT, L"", VT_EMPTY, OPC_READABLE|OPC_WRITEABLE, &enum_str);
         if (SUCCEEDED(hr)) {
+            trace_debug("broew IOCItem IDs\n");
             for (;;) {
                 LPOLESTR   strs[64];
                 ULONG      count = 0;
@@ -211,6 +212,7 @@ int opcda2_server_connect(const wchar_t *host, const wchar_t *prog_id, data_list
 
                 for (i = 0; i < count; ++i) {
                     LPOLESTR str = strs[i];
+                    wtrace_debug(L"item id(%ls)\n", str);
                     if (str == NULL) continue;
                     if (wcslen(str) >= OPCDA2_ITEM_ID_LEN) {
                         wtrace_debug(L"item id(%ls) length >= 32\n", str);

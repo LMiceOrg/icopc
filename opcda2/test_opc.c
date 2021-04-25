@@ -279,6 +279,8 @@ int main_test() {
     int     item_size = 6;
     int     item_active[6];
     wchar_t item_id[6][OPCDA2_ITEM_ID_LEN];
+    wchar_t item_write_id[6][OPCDA2_ITEM_ID_LEN];
+    VARIANT item_write_value[6];
     int     surfix[6] = {1, 2, 4, 1, 2, 4};
     int     i;
 
@@ -286,7 +288,13 @@ int main_test() {
 
     for (i = 0; i < item_size; ++i) {
         wchar_t *id    = item_id[i];
+
         item_active[i] = 1;
+
+        memset(item_write_value+i, 0, sizeof(VARIANT));
+        item_write_value[i].vt = VT_I4;
+        item_write_value[i].intVal = i*3;
+        swprintf(item_write_id[i], OPCDA2_ITEM_ID_LEN, L"Write Only.Int%d", surfix[i]);
 
         if (i < 3) {
             swprintf(id, OPCDA2_ITEM_ID_LEN, L"Random.Int%d", surfix[i]);
@@ -333,21 +341,35 @@ int main_test() {
         items = CoTaskMemAlloc(sizeof(data_list));
         memset(items, 0, sizeof(data_list));
         opcda2_server_connect(L"127.0.0.1", L"Matrikon.OPC.Simulation.1", items, &conn);
+        for(i=0; i< conn->item_size; ++i) {
+          wtrace_debug(L"item id:%ls\n", conn->item_list[i].id);
+        }
 
         /* test add group */
 
 
-        opcda2_group_add(conn, L"group001", 1, 5000, &grp);
-        opcda2_item_add(grp, item_size, (const wchar_t *) item_id, item_active);
+        opcda2_group_add(conn, L"group001", 1, 2000, &grp);
+        opcda2_item_add(grp, 3, (const wchar_t *) item_id, item_active);
+
+        #if 0
         opcda2_group_add(conn, L"group002", 1, 4000, &grp);
         opcda2_item_add(grp, item_size, (const wchar_t *) item_id, item_active);
         opcda2_group_add(conn, L"group003", 1, 3000, &grp);
         opcda2_item_add(grp, item_size, (const wchar_t *) item_id, item_active);
         opcda2_group_add(conn, L"group004", 1, 2000, &grp);
         opcda2_item_add(grp, item_size, (const wchar_t *) item_id, item_active);
-
+#endif
 
         Sleep(10000);
+
+        trace_debug("test write data\n");
+        opcda2_item_add(grp, 3, (const wchar_t *) item_write_id, item_active);
+        opcda2_item_add(grp, 3, (const wchar_t *) item_id[3], item_active);
+        Sleep(1000);
+        opcda2_item_write(grp, 3, (const wchar_t*)item_write_id, item_write_value);
+        Sleep(2000);
+        opcda2_item_refresh(grp);
+        Sleep(5000);
 
 
         opcda2_server_disconnect(conn);

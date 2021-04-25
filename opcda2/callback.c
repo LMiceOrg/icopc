@@ -189,10 +189,10 @@ HRESULT STDMETHODCALLTYPE callback_OnReadComplete(IOPCDataCallback *            
         memcpy(&(data->ts), pftTimeStamps, sizeof(FILETIME));
 
         if (data->value.vt == VT_R8) {
-            wtrace_debug(L" item[%X]: %ls,\t[%d]ivalue: %.04lf, quality:%d, hr:%ld\n", handle, data->id,
+            wtrace_debug(L" item[%X]: %ls\t[%d]ivalue: %.04lf, quality:%d, hr:%ld\n", handle, data->id,
                          data->value.vt, data->value.dblVal, pwQualities[i], pErrors[i]);
         } else {
-            wtrace_debug(L" item[%X]: %ls,\t[%d]ivalue: %d, quality:%d, hr:%ld\n", handle, data->id, data->value.vt,
+            wtrace_debug(L" item[%X]: %ls\t[%d]ivalue: %d, quality:%d, hr:%ld\n", handle, data->id, data->value.vt,
                          data->value.intVal, pwQualities[i], pErrors[i]);
         }
     }
@@ -206,6 +206,18 @@ HRESULT STDMETHODCALLTYPE callback_OnWriteComplete(IOPCDataCallback *           
                                                    /* [in] */ DWORD               dwCount,
                                                    /* [size_is][in] */ OPCHANDLE *pClienthandles,
                                                    /* [size_is][in] */ HRESULT *  pErrors) {
+    client_interface *base;
+    DWORD             i;
+
+    base = (client_interface *) (self);
+    trace_debug("group: %lu\tOnWriteComplete[%lu] item count: %lu\n", hGroup, dwTransid, dwCount);
+    for (i = 0; i < dwCount; ++i) {
+        unsigned int handle = pClienthandles[i];
+        item_data *  data;
+        if (handle >= OPCDA2_ITEM_DATA_MAX + OPCDA2_EXTRA_DATA_MAX) continue;
+        data = opcda2_data(base->datas, handle);
+        wtrace_debug(L" item[%ls] write %X\n", data->id, pErrors[i]);
+    }
     return S_OK;
 }
 

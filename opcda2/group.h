@@ -96,6 +96,9 @@ int opcda2_item_del(group *grp, int size, const wchar_t* item_ids);
 /* 写入 item 数据 */
 int opcda2_item_write(group* grp, int size, const wchar_t* item_ids, const VARIANT* item_values);
 
+/* 刷新数据 */
+void opcda2_item_refresh(group*);
+
 /* 获取data 通过句柄 */
 item_data* opcda2_data_find(data_list* datas, unsigned int handle);
 

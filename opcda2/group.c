@@ -7,8 +7,6 @@
 
 #include "util_hash.h"
 
-
-
 static void opcda2_group_remove_item(group* grp, int pos) {
     item_data* data     = grp->item[pos];
     int        tail_num = grp->item_size - pos - 1;
@@ -47,7 +45,7 @@ unsigned int opcda2_data_add(data_list* datas, unsigned int hash) {
             /* 有子节点，循环查找叶节点 */
             for (extra_pos = 1; extra_pos < OPCDA2_EXTRA_DATA_MAX; ++extra_pos) {
                 /* 指向 extra 记录 */
-                prev = parent->next;
+                prev   = parent->next;
                 parent = datas->extra + parent->next;
 
                 /* 找到叶节点，退出查找 */
@@ -119,7 +117,7 @@ void opcda2_data_del(data_list* datas, unsigned int handle) {
         }
 
         parent->next = data->next;
-        child->prev = data->prev;
+        child->prev  = data->prev;
 
         data->used = OPCDA2_NOTUSE;
     } else {
@@ -137,9 +135,9 @@ void opcda2_data_del(data_list* datas, unsigned int handle) {
 /* 获取data 通过句柄 */
 item_data* opcda2_data_find(data_list* datas, unsigned int handle) {
     item_data* data = NULL;
-    #if _DEBUG
+#if _DEBUG
     unsigned int table = handle >> 16;
-    unsigned int pos = (handle & ((1 << 16) - 1));
+    unsigned int pos   = (handle & ((1 << 16) - 1));
     if (table == 0) {
         /* data 数据表 */
         if (pos < OPCDA2_ITEM_DATA_MAX) data = datas->data + pos;
@@ -147,12 +145,12 @@ item_data* opcda2_data_find(data_list* datas, unsigned int handle) {
         /* extra 数据表 */
         if (pos < OPCDA2_EXTRA_DATA_MAX) data = datas->extra + pos;
     }
-    #else
+#else
     /* handle ==> data + extra */
     if (handle < OPCDA2_ITEM_DATA_MAX + OPCDA2_EXTRA_DATA_MAX) {
         data = datas->data + handle;
     }
-    #endif
+#endif
 
     return data;
 }
@@ -200,7 +198,7 @@ int opcda2_item_add(group* grp, int size, const wchar_t* item_ids, int* active) 
     HRESULT*       item_hr     = NULL;
     int            item_cnt;
     int            grp_item_base;
-    int i;
+    int            i;
 
     item_def = (OPCITEMDEF*) CoTaskMemAlloc(sizeof(OPCITEMDEF) * size);
     memset(item_def, 0, sizeof(OPCITEMDEF) * size);
@@ -210,17 +208,16 @@ int opcda2_item_add(group* grp, int size, const wchar_t* item_ids, int* active) 
 
     for (i = 0; i < size; ++i) {
         unsigned int   hval;
-        unsigned int hash;
-        unsigned int handle;
+        unsigned int   hash;
+        unsigned int   handle;
         size_t         id_len;
         const wchar_t* id;
         item_data*     data;
 
         id     = item_ids + i * OPCDA2_ITEM_ID_LEN;
         id_len = wcslen(id);
-        hval   = eal_hash32_fnv1a_more(id, id_len*sizeof(wchar_t), grp->hash);
+        hval   = eal_hash32_fnv1a_more(id, id_len * sizeof(wchar_t), grp->hash);
         hash   = eal_hash32_to16(hval);
-
 
         /* 在group中item已经插入, 跳过此id */
         if (opcda2_item_find(grp, id)) continue;
@@ -243,9 +240,9 @@ int opcda2_item_add(group* grp, int size, const wchar_t* item_ids, int* active) 
         memcpy(data->id, id, id_len * sizeof(wchar_t));
 
         /* 插入 item_def 列表 */
-        item_def[item_cnt].szItemID     = data->id;
-        item_def[item_cnt].bActive      = data->active;
-        item_def[item_cnt].hClient      = data->handle;
+        item_def[item_cnt].szItemID = data->id;
+        item_def[item_cnt].bActive  = data->active;
+        item_def[item_cnt].hClient  = data->handle;
         item_cnt++;
 
         /* 插入 group item 列表 */
@@ -266,7 +263,6 @@ int opcda2_item_add(group* grp, int size, const wchar_t* item_ids, int* active) 
             }
         } else {
             trace_debug("all items(%d) can be added\n", item_cnt);
-
         }
         if (item_result) {
             CoTaskMemFree(item_result);
@@ -305,8 +301,9 @@ int opcda2_item_add(group* grp, int size, const wchar_t* item_ids, int* active) 
             hr     = item_hr[i];
             handle = item_def[i].hClient;
             data   = opcda2_data(grp->datas, handle);
-            wtrace_debug(L"add item(%ls) hr %ld type ask[%d] ret[%d]\n", item_def[i].szItemID, item_hr[i],
-                         item_def[i].vtRequestedDataType, item_result[i].vtCanonicalDataType);
+            wtrace_debug(L"add item(%ls) hr %ld type ask[%d] ret[%d] access:%d\n", item_def[i].szItemID, item_hr[i],
+                         item_def[i].vtRequestedDataType, item_result[i].vtCanonicalDataType,
+                         item_result[i].dwAccessRights);
             if (hr == S_OK) {
                 /*Server 确认插入成功， 设置字段*/
                 data->svr_handle = item_result[i].hServer;
@@ -352,13 +349,13 @@ clean_up:
 }
 
 int opcda2_item_del(group* grp, int size, const wchar_t* item_ids) {
-    HRESULT        hr;
-    HRESULT*       item_hr     = NULL;
-    OPCHANDLE*     remove_item = NULL;
-    int*           item_pos;
-    int            remove_size;
-    int i;
-    int j;
+    HRESULT    hr;
+    HRESULT*   item_hr     = NULL;
+    OPCHANDLE* remove_item = NULL;
+    int*       item_pos;
+    int        remove_size;
+    int        i;
+    int        j;
     /* group为空 */
     if (grp->item_size == 0) return 0;
 
@@ -369,7 +366,7 @@ int opcda2_item_del(group* grp, int size, const wchar_t* item_ids) {
 
     /* size == -1 ==> 清空全部 */
     /* 在group.item 中查找 */
-    for ( i = grp->item_size - 1; i >= 0; --i) {
+    for (i = grp->item_size - 1; i >= 0; --i) {
         item_data* data = grp->item[i];
         if (size == OPCDA2_ITEM_ALL) {
             item_pos[remove_size]    = i;
@@ -423,9 +420,9 @@ int opcda2_item_write(group* grp, int size, const wchar_t* item_ids, const VARIA
     HRESULT*   item_hr         = NULL;
     OPCHANDLE* item_svr_handle = NULL;
     VARIANT*   item_new_value  = NULL;
-    int id_idx;
-    int itm_idx;
-    int i;
+    int        id_idx;
+    int        itm_idx;
+    int        i;
 
     if (!grp->async_io2) {
         return ret;
@@ -437,7 +434,7 @@ int opcda2_item_write(group* grp, int size, const wchar_t* item_ids, const VARIA
     item_size       = 0;
     for (id_idx = 0; id_idx < size; ++id_idx) {
         const wchar_t* id         = item_ids + id_idx * OPCDA2_ITEM_ID_LEN;
-        OPCHANDLE     svr_handle = 0;
+        OPCHANDLE      svr_handle = 0;
         for (itm_idx = 0; itm_idx < grp->item_size; ++itm_idx) {
             item_data* item = grp->item[itm_idx];
             if (wcscmp(id, item->id) == 0) {
@@ -447,30 +444,43 @@ int opcda2_item_write(group* grp, int size, const wchar_t* item_ids, const VARIA
         }
         if (svr_handle) {
             item_svr_handle[item_size] = svr_handle;
-            if (item_new_value) VariantCopy(item_new_value + item_size, (VARIANT*)(item_values + id_idx));
+            if (item_new_value) VariantCopy(item_new_value + item_size, (VARIANT*) (item_values + id_idx));
             ++item_size;
         } else {
             if (item_new_value == NULL) {
                 item_new_value = CoTaskMemAlloc(sizeof(VARIANT) * size);
                 memset(item_new_value, 0, sizeof(VARIANT) * size);
                 for (i = 0; i < item_size; ++i) {
-                    VariantCopy(item_new_value + i,  (VARIANT*)(item_values + i));
+                    VariantCopy(item_new_value + i, (VARIANT*) (item_values + i));
                 }
             }
         }
     }
     if (item_new_value) {
-        hr = grp->async_io2->lpVtbl->Write(grp->async_io2, item_size, item_svr_handle, item_new_value, trans_id, &cancel_id,
-                                           &item_hr);
+        hr = grp->async_io2->lpVtbl->Write(grp->async_io2, item_size, item_svr_handle, item_new_value, trans_id,
+                                           &cancel_id, &item_hr);
         CoTaskMemFree(item_new_value);
     } else {
-        hr = grp->async_io2->lpVtbl->Write(grp->async_io2, size, item_svr_handle, item_new_value, trans_id, &cancel_id,
-                                           &item_hr);
+        hr = grp->async_io2->lpVtbl->Write(grp->async_io2, item_size, item_svr_handle, (VARIANT*) item_values, trans_id,
+                                           &cancel_id, &item_hr);
     }
     if (SUCCEEDED(hr)) {
         ret = 0;
+        if (hr == S_FALSE) {
+            for (i = 0; i < item_size; ++i) {
+                wtrace_debug(L"item[%ls] write failed 0x%X\n", item_ids + i * 32, item_hr[i]);
+            }
+        }
     }
+    trace_debug("grp write %d %x\n", item_size, hr);
     CoTaskMemFree(item_hr);
     CoTaskMemFree(item_svr_handle);
     return ret;
+}
+
+void opcda2_item_refresh(group* grp) {
+    if (grp->async_io2) {
+        DWORD c_id;
+        grp->async_io2->lpVtbl->Refresh2(grp->async_io2, OPC_DS_CACHE, 2, &c_id);
+    }
 }
