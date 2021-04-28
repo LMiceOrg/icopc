@@ -82,9 +82,7 @@ void test_websocket() {
     printf("rst:\n");
     print_u16(buf2);
     printf("%s\n", (const char *)buf2);
-
   }
-
 }
 
 #endif
@@ -338,8 +336,7 @@ int main_test() {
         server_connect *conn;
         group *         grp = NULL;
 
-        items = CoTaskMemAlloc(sizeof(data_list));
-        memset(items, 0, sizeof(data_list));
+        items = iclist_data_list_alloc();
         opcda2_server_connect(L"127.0.0.1", L"Matrikon.OPC.Simulation.1", items, &conn);
         for (i = 0; i < conn->item_size; ++i) {
             wtrace_debug(L"item id:%ls\n", conn->item_list[i].id);
@@ -372,7 +369,7 @@ int main_test() {
 
         opcda2_server_disconnect(conn);
         CoTaskMemFree(conn);
-        CoTaskMemFree(items);
+        iclist_data_list_free(items);
     }
 
     _CrtDumpMemoryLeaks();
@@ -417,7 +414,7 @@ printf("call heap summary\n");
 
 typedef struct abc_item {
   ICLIST_DATAHEAD
-  int private;
+  int pid;
 }abc_item;
 
 iclist_def_prototype(abc, abc_item, 15, 3);
@@ -434,7 +431,8 @@ int main() {
       connect_list *ptest;
       iclist_alloc(ptest, connect_list);
       iclist_lock(ptest);
-    trace_debug("my connect_list size %d  server_conn size %d  group size %d\n", sizeof(connect_list), sizeof(server_connect), sizeof(group));
+    trace_debug("my connect_list size %d  server_conn size %d  group size %d\n",
+    sizeof(connect_list), sizeof(server_connect), sizeof(group));
     trace_debug("data_list size %d %x\n", sizeof(data_list), ptest->lock);
     iclist_unlock(ptest);
     trace_debug("data_list size %d %x\n", sizeof(data_list), ptest->lock);
@@ -443,7 +441,7 @@ int main() {
 
     return 0;
     }
-    #endif
+#endif
 
     for (;;) {
         int c;
