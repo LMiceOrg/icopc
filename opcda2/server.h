@@ -17,9 +17,13 @@ There are two ways to write data out:
 #include "opcda2_all.h"
 #include "group.h"
 #include "callback.h"
+#include "util_list.h"
+
+
 
 #define OPCDA2_SERVER_GROUP_MAX 16
 #define OPCDA2_CONNECT_MAX 16
+
 
 typedef struct server_info {
     LPOLESTR  prog_id;
@@ -33,13 +37,14 @@ typedef struct item_info {
     wchar_t id[OPCDA2_ITEM_ID_SIZE];
 } item_info;
 
+/* OPC服务器连接 */
 typedef struct server_connect {
+    ICLIST_DATAHEAD
     DWORD       cookie; /* IOPCShutdown OPCDA2.0 support */
     IOPCServer* svr;    /* 需要Release */
     IUnknown * callback; /* 需要Release */
 
     data_list* datas;       /* 数据表 */
-    unsigned int hash;
     wchar_t    host[32];    /* 网络地址 (ip 或者 名称) */
     wchar_t    prog_id[32]; /* OPC Server 名称 */
 
@@ -49,9 +54,11 @@ typedef struct server_connect {
     group      grp[OPCDA2_SERVER_GROUP_MAX];
 } server_connect;
 
-typedef struct connect_list {
-    server_connect conn[OPCDA2_CONNECT_MAX];
-} connect_list;
+/* 服务器连接链表 */
+iclist_def_prototype(connect_list, server_connect, OPCDA2_CONNECT_MAX, 8);
+
+int opcda2_alloc(connect_list** cl);
+void opcda2_free(connect_list* cl);
 
 /** 操作 OPCServerList **/
 

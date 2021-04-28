@@ -287,13 +287,13 @@ int main_test() {
     memset(item_id, item_size, 6 * OPCDA2_ITEM_ID_SIZE);
 
     for (i = 0; i < item_size; ++i) {
-        wchar_t *id    = item_id[i];
+        wchar_t *id = item_id[i];
 
         item_active[i] = 1;
 
-        memset(item_write_value+i, 0, sizeof(VARIANT));
-        item_write_value[i].vt = VT_I4;
-        item_write_value[i].intVal = i*3;
+        memset(item_write_value + i, 0, sizeof(VARIANT));
+        item_write_value[i].vt     = VT_I4;
+        item_write_value[i].intVal = i * 3;
         swprintf(item_write_id[i], OPCDA2_ITEM_ID_LEN, L"Write Only.Int%d", surfix[i]);
 
         if (i < 3) {
@@ -303,18 +303,20 @@ int main_test() {
         }
     }
 
+    trace_debug("server conn size%d\n", sizeof(connect_list) );
+
     _CrtSetDbgFlag(_CRTDBG_LEAK_CHECK_DF);
 
 #if 0
   HEAP_SUMMARY summary;
   memset(&summary, 0, sizeof(summary));
   summary.cb = sizeof(HEAP_SUMMARY);
-   HANDLE heap = GetProcessHeap();
+  HANDLE heap = GetProcessHeap();
 
-   printf("call heap summary\n");
+  printf("call heap summary\n");
 
   HeapSummary(heap, 0, &summary);
-  trace_debug("heap: alloc:%lu  commit: %lu reserv: %lu\n", summary.cbAllocated, summary.cbCommitted,summary.cbReserved);
+  trace_debug("heap: alloc:%lu  commit: %lu reserv: %lu\n", summary.cbAllocated, summary.cbCommitted, summary.cbReserved);
 #endif
 
     {
@@ -331,27 +333,24 @@ int main_test() {
         opcda2_serverlist_clear(size, info_list);
     }
 
-
-
     {
-        data_list *items;
+        data_list *     items;
         server_connect *conn;
-        group *grp = NULL;
+        group *         grp = NULL;
 
         items = CoTaskMemAlloc(sizeof(data_list));
         memset(items, 0, sizeof(data_list));
         opcda2_server_connect(L"127.0.0.1", L"Matrikon.OPC.Simulation.1", items, &conn);
-        for(i=0; i< conn->item_size; ++i) {
-          wtrace_debug(L"item id:%ls\n", conn->item_list[i].id);
+        for (i = 0; i < conn->item_size; ++i) {
+            wtrace_debug(L"item id:%ls\n", conn->item_list[i].id);
         }
 
         /* test add group */
 
-
         opcda2_group_add(conn, L"group001", 1, 2000, &grp);
         opcda2_item_add(grp, 3, (const wchar_t *) item_id, item_active);
 
-        #if 0
+#if 0
         opcda2_group_add(conn, L"group002", 1, 4000, &grp);
         opcda2_item_add(grp, item_size, (const wchar_t *) item_id, item_active);
         opcda2_group_add(conn, L"group003", 1, 3000, &grp);
@@ -366,17 +365,15 @@ int main_test() {
         opcda2_item_add(grp, 3, (const wchar_t *) item_write_id, item_active);
         opcda2_item_add(grp, 3, (const wchar_t *) item_id[3], item_active);
         Sleep(1000);
-        opcda2_item_write(grp, 3, (const wchar_t*)item_write_id, item_write_value);
+        opcda2_item_write(grp, 3, (const wchar_t *) item_write_id, item_write_value);
         Sleep(2000);
         opcda2_item_refresh(grp);
         Sleep(5000);
-
 
         opcda2_server_disconnect(conn);
         CoTaskMemFree(conn);
         CoTaskMemFree(items);
     }
-
 
     _CrtDumpMemoryLeaks();
 
@@ -403,7 +400,7 @@ int main_test() {
 printf("call heap summary\n");
 
   HeapSummary(heap, 0, &summary);
-  trace_debug("heap: alloc:%lu  commit: %lu reserv: %lu\n", summary.cbAllocated, summary.cbCommitted,summary.cbReserved);
+  trace_debug("heap: alloc:%lu  commit: %lu reserv: %lu\n", summary.cbAllocated, summary.cbCommitted, summary.cbReserved);
 #endif
 
 #if 0
@@ -417,13 +414,36 @@ printf("call heap summary\n");
 }
 
 #include <tlhelp32.h>
+
+typedef struct abc_item {
+  ICLIST_DATAHEAD
+  int private;
+}abc_item;
+
+iclist_def_prototype(abc, abc_item, 15, 3);
+iclist_def_function(abc, abc_item)
+
 int main() {
     DWORD c_tid = GetCurrentThreadId();
     /* 初始化COM */
     CoInitializeEx(0, COINIT_MULTITHREADED);
-
-
     trace_debug("main thread %ld\n", c_tid);
+#if 0
+
+    {
+      connect_list *ptest;
+      iclist_alloc(ptest, connect_list);
+      iclist_lock(ptest);
+    trace_debug("my connect_list size %d  server_conn size %d  group size %d\n", sizeof(connect_list), sizeof(server_connect), sizeof(group));
+    trace_debug("data_list size %d %x\n", sizeof(data_list), ptest->lock);
+    iclist_unlock(ptest);
+    trace_debug("data_list size %d %x\n", sizeof(data_list), ptest->lock);
+    iclist_free(ptest);
+    trace_debug("hash %u\n", iclist_abc_hash(&c_tid, 4, 0) );
+
+    return 0;
+    }
+    #endif
 
     for (;;) {
         int c;
@@ -480,3 +500,4 @@ int main() {
 
     return 0;
 }
+

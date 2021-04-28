@@ -7,12 +7,23 @@
 
 #include "util_hash.h"
 
+#include "util_atomic.h"
+
+iclist_def_function(data_list, item_data)
+
+#define opcda2_item_id_cmp(id1, id2) \
+    memcmp(id1, id2, OPCDA2_ITEM_ID_SIZE)
+
+#define opcda2_item_id_copy(id1, id2) \
+    memcpy(id1, id2, OPCDA2_ITEM_ID_SIZE)
+
 static void opcda2_group_remove_item(group* grp, int pos) {
     item_data* data     = grp->item[pos];
     int        tail_num = grp->item_size - pos - 1;
 
     /* 删除 data */
-    opcda2_data_del(grp->datas, data->handle);
+    iclist_data_list_del(grp->datas, data->handle);
+    /* opcda2_data_del(grp->datas, data->handle); */
 
     /* remove item[pos], move pos+1 to pos */
     if (tail_num > 0) {
@@ -20,7 +31,7 @@ static void opcda2_group_remove_item(group* grp, int pos) {
     }
     grp->item_size--;
 }
-
+#if 0
 unsigned int opcda2_data_add(data_list* datas, unsigned int hash) {
     item_data*   data   = opcda2_data(datas, hash);
     unsigned int handle = OPCDA2_HANDLE_INVALID;
@@ -154,7 +165,7 @@ item_data* opcda2_data_find(data_list* datas, unsigned int handle) {
 
     return data;
 }
-
+#endif
 int opcda2_group_advise_callback(group* grp, IUnknown* cb) {
     int     ret = 0;
     HRESULT hr;
@@ -207,37 +218,41 @@ int opcda2_item_add(group* grp, int size, const wchar_t* item_ids, int* active) 
     grp_item_base = grp->item_size;
 
     for (i = 0; i < size; ++i) {
-        unsigned int   hval;
         unsigned int   hash;
         unsigned int   handle;
-        size_t         id_len;
         const wchar_t* id;
         item_data*     data;
 
         id     = item_ids + i * OPCDA2_ITEM_ID_LEN;
-        id_len = wcslen(id);
-        hval   = eal_hash32_fnv1a_more(id, id_len * sizeof(wchar_t), grp->hash);
+        hash = iclist_data_list_hash(id, OPCDA2_ITEM_ID_SIZE, grp->hash);
+        #if 0
+        unsigned int   hval;
+        hval   = eal_hash32_fnv1a_more(id, OPCDA2_ITEM_ID_SIZE, grp->hash);
         hash   = eal_hash32_to16(hval);
+        #endif
 
         /* 在group中item已经插入, 跳过此id */
         if (opcda2_item_find(grp, id)) continue;
 
         /* 向数据表中添加 data */
+        #if 0
         handle = opcda2_data_add(grp->datas, hash);
+        #else
+        handle = iclist_data_list_add(grp->datas, hash);
+        #endif
 
         /* 如果添加失败，则跳过此id */
-        if (handle == OPCDA2_HANDLE_INVALID) continue;
+        if (handle == ICLIST_INVALID_HANDLE) continue;
 
         /* 更新数据data 状态 */
-        data = opcda2_data(grp->datas, handle);
+        data = iclist_data(grp->datas, handle);
 
         data->ts.dwHighDateTime = 0;
         data->ts.dwLowDateTime  = 0;
         data->cli_group         = grp->cli_group;
         data->svr_handle        = 0;
         data->active            = active[i];
-        memset(data->id, 0, OPCDA2_ITEM_ID_SIZE);
-        memcpy(data->id, id, id_len * sizeof(wchar_t));
+        memcpy(data->id, id, OPCDA2_ITEM_ID_SIZE);
 
         /* 插入 item_def 列表 */
         item_def[item_cnt].szItemID = data->id;
@@ -257,12 +272,12 @@ int opcda2_item_add(group* grp, int size, const wchar_t* item_ids, int* active) 
     hr = grp->itm_mgt->lpVtbl->ValidateItems(grp->itm_mgt, item_cnt, item_def, FALSE, &item_result, &item_hr);
     if (SUCCEEDED(hr)) {
         if (hr == S_FALSE) {
-            trace_debug("some item cannot be added\n");
+            trace_debug("ValidateItems some item cannot be added\n");
             for (i = 0; i < item_cnt; ++i) {
-                wtrace_debug(L"validate item(%ls) hr 0x%lX\n", item_def[i].szItemID, item_hr[i]);
+                wtrace_debug(L"ValidateItems item(%ls) hr 0x%lX\n", item_def[i].szItemID, item_hr[i]);
             }
         } else {
-            trace_debug("all items(%d) can be added\n", item_cnt);
+            trace_debug("ValidateItems all items(%d) can be added\n", item_cnt);
         }
         if (item_result) {
             CoTaskMemFree(item_result);
@@ -273,7 +288,7 @@ int opcda2_item_add(group* grp, int size, const wchar_t* item_ids, int* active) 
             item_hr = NULL;
         }
     } else {
-        trace_debug("All items cannot be added 0x%lX\n", hr);
+        trace_debug("ValidateItems all items cannot be added 0x%lX\n", hr);
         if (item_result) {
             CoTaskMemFree(item_result);
             item_result = NULL;
@@ -282,16 +297,15 @@ int opcda2_item_add(group* grp, int size, const wchar_t* item_ids, int* active) 
             CoTaskMemFree(item_hr);
             item_hr = NULL;
         }
-        goto clean_up;
     }
 
     /* 3. 插入Item */
     hr = grp->itm_mgt->lpVtbl->AddItems(grp->itm_mgt, item_cnt, item_def, &item_result, &item_hr);
     if (SUCCEEDED(hr)) {
         if (hr == S_FALSE) {
-            trace_debug("some item cannot added\n");
+            trace_debug("AddItems some item cannot added\n");
         } else {
-            trace_debug("all items added\n");
+            trace_debug("AddItems all items added\n");
         }
 
         for (i = item_cnt - 1; i >= 0; --i) {
@@ -300,8 +314,8 @@ int opcda2_item_add(group* grp, int size, const wchar_t* item_ids, int* active) 
 
             hr     = item_hr[i];
             handle = item_def[i].hClient;
-            data   = opcda2_data(grp->datas, handle);
-            wtrace_debug(L"add item(%ls) hr %ld type ask[%d] ret[%d] access:%d\n", item_def[i].szItemID, item_hr[i],
+            data   = iclist_data(grp->datas, handle);
+            wtrace_debug(L"AddItems item(%ls) hr %ld type ask[%d] ret[%d] access:%d\n", item_def[i].szItemID, item_hr[i],
                          item_def[i].vtRequestedDataType, item_result[i].vtCanonicalDataType,
                          item_result[i].dwAccessRights);
             if (hr == S_OK) {
@@ -375,7 +389,7 @@ int opcda2_item_del(group* grp, int size, const wchar_t* item_ids) {
         } else {
             for (j = 0; j < size; ++j) {
                 const wchar_t* id = item_ids + j * OPCDA2_ITEM_ID_LEN;
-                if (wcscmp(data->id, id) == 0) {
+                if (opcda2_item_id_cmp(data->id, id) == 0) {
                     item_pos[remove_size]    = i;
                     remove_item[remove_size] = data->svr_handle;
                     remove_size++;
@@ -385,17 +399,17 @@ int opcda2_item_del(group* grp, int size, const wchar_t* item_ids) {
             }
         }
     }
-    trace_debug("begin remove %d items\n", remove_size);
+    trace_debug("RemoveItems %d items\n", remove_size);
     hr = grp->itm_mgt->lpVtbl->RemoveItems(grp->itm_mgt, remove_size, remove_item, &item_hr);
     if (SUCCEEDED(hr)) {
         if (hr == S_OK) {
             /* remove success */
-            trace_debug("remove item %d success\n", remove_size);
+            trace_debug("RemoveItems item %d success\n", remove_size);
         } else if (hr == S_FALSE) {
-            trace_debug("remove item %d false\n", remove_size);
+            trace_debug("RemoveItems item %d false\n", remove_size);
         }
         for (i = 0; i < remove_size; ++i) {
-            wtrace_debug(L"item(%ls) remove %lx\n", grp->item[i]->id, item_hr[i]);
+            wtrace_debug(L"RemoveItems item(%ls) remove %lx\n", grp->item[i]->id, item_hr[i]);
             if (item_hr[i] == S_OK) {
                 int pos = item_pos[i];
                 opcda2_group_remove_item(grp, pos);
@@ -404,7 +418,7 @@ int opcda2_item_del(group* grp, int size, const wchar_t* item_ids) {
         CoTaskMemFree(item_hr);
         item_hr = NULL;
     } else {
-        trace_debug("remove item failed  %ld\n", hr);
+        trace_debug("RemoveItems all item failed  %ld\n", hr);
     }
     if (remove_item) CoTaskMemFree(remove_item);
     if (item_pos) CoTaskMemFree(item_pos);
@@ -437,7 +451,7 @@ int opcda2_item_write(group* grp, int size, const wchar_t* item_ids, const VARIA
         OPCHANDLE      svr_handle = 0;
         for (itm_idx = 0; itm_idx < grp->item_size; ++itm_idx) {
             item_data* item = grp->item[itm_idx];
-            if (wcscmp(id, item->id) == 0) {
+            if (opcda2_item_id_cmp(id, item->id) == 0) {
                 svr_handle = item->svr_handle;
                 break;
             }

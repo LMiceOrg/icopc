@@ -51,3 +51,18 @@ unsigned int eal_hash32_to16(unsigned int hash) {
     hash = (hash>>16) ^ (hash & MASK_16);
     return hash;
 }
+
+#define MAX_32BIT ((unsigned int) 0xffffffff) /* largest 32 bit unsigned value */
+#define RETRY_LEVEL(n) ((MAX_32BIT / n) * n)
+#define FNV_32_PRIME ((unsigned int) 16777619)
+#define FNV1_32_INIT ((unsigned int)2166136261)
+
+unsigned int eal_hash32_ton(unsigned int hash, unsigned int n) {
+#if defined(HASH_RETRY_MODE)
+    while (hash >= RETRY_LEVEL(n)) {
+        hash = (hash * FNV_32_PRIME) + FNV1_32_INIT;
+    }
+#endif
+    hash %= n;
+    return hash;
+}

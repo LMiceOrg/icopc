@@ -3,6 +3,7 @@
 #define OPCDA2_GROUP_H_
 
 #include "opcda2_all.h"
+#include "util_list.h"
 
 /* group 中最大 item 数量 */
 #define OPCDA2_GROUP_ITEM_MAX 1024
@@ -30,23 +31,31 @@ struct server_connect;
 
 
 typedef struct item_data {
+    ICLIST_DATAHEAD
     VARIANT      value;      /* 数据（类型，值） */
     FILETIME     ts;         /* 更新时间 */
-    unsigned int handle;     /* 所在列表位置: high(16):所在列表 low(16):列表偏移量 */
     OPCHANDLE    cli_group;  /* 从属组 */
     OPCHANDLE    svr_handle; /* AddItems时从 Server 返回，用于RemoveItems */
     int          active;     /* 状态 */
     wchar_t      id[32];     /* id */
+#if 0
     int          used;       /* 使用与否 */
+    unsigned int handle;     /* 所在列表位置: high(16):所在列表 low(16):列表偏移量 */
     unsigned int hash;       /* item 散列值 */
     int          next;       /* 相同hash下 在extra的数据位置, 从1开始 0:没有 */
     int          prev;       /* 相同hash下 指向上一条记录，正在extra中的位置,从1开始，0:data */
+#endif
 } item_data;
 
+iclist_def_prototype(data_list, item_data, OPCDA2_ITEM_DATA_MAX, OPCDA2_EXTRA_DATA_MAX);
+
+/* 数据表 data:散列表 extra:双向链表 */
+#if 0
 typedef struct data_list {
     item_data         data[OPCDA2_ITEM_DATA_MAX];   /* 数据表 */
     item_data         extra[OPCDA2_EXTRA_DATA_MAX]; /* 属性表 */
 } data_list;
+#endif
 
 typedef struct group {
     int       used; /* 结构体使用情况 */
@@ -99,6 +108,7 @@ int opcda2_item_write(group* grp, int size, const wchar_t* item_ids, const VARIA
 /* 刷新数据 */
 void opcda2_item_refresh(group*);
 
+#if 0
 /* 获取data 通过句柄 */
 item_data* opcda2_data_find(data_list* datas, unsigned int handle);
 
@@ -116,6 +126,8 @@ unsigned int opcda2_data_add(data_list* datas, unsigned int hash);
 
 /* 验证 handle是否正确 */
 #define opcda2_data_handle(_hdl) ((_hdl) < OPCDA2_ITEM_DATA_MAX + OPCDA2_EXTRA_DATA_MAX)
+
+#endif
 
 #endif  /** OPCDA2_GROUP_H_ */
 

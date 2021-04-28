@@ -5,6 +5,8 @@
 #include "util_trace.h"
 #include "util_hash.h"
 
+iclist_def_function(connect_list, server_connect)
+
 static inline unsigned int salt_gen() {
     /*
     Seed(n+1) = (a * Seed(n) + c) % m

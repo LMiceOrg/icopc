@@ -143,11 +143,12 @@ HRESULT STDMETHODCALLTYPE callback_OnDataChange(IOPCDataCallback *             s
 
         if (handle >= OPCDA2_ITEM_DATA_MAX + OPCDA2_EXTRA_DATA_MAX) continue;
 
-        data = opcda2_data(base->datas, handle);
-
+        data = iclist_data(base->datas, handle);
+        /* iclist_lock(data); */
         VariantClear(&data->value);
         VariantCopy(&data->value, pvValues + i);
         memcpy(&(data->ts), pftTimeStamps, sizeof(FILETIME));
+        /* iclist_unlock(data); */
 
         if (data->value.vt == VT_R8) {
             wtrace_debug(L" item[%X]: %ls,\t[%d]ivalue: %.04lf, quality:%d, hr:%ld\n", handle, data->id,
@@ -182,11 +183,12 @@ HRESULT STDMETHODCALLTYPE callback_OnReadComplete(IOPCDataCallback *            
 
         if (handle >= OPCDA2_ITEM_DATA_MAX + OPCDA2_EXTRA_DATA_MAX) continue;
 
-        data = opcda2_data(base->datas, handle);
-
+        data = iclist_data(base->datas, handle);
+        /* iclist_lock(data); */
         VariantClear(&data->value);
         VariantCopy(&data->value, pvValues + i);
         memcpy(&(data->ts), pftTimeStamps, sizeof(FILETIME));
+        /* iclist_unlock(data); */
 
         if (data->value.vt == VT_R8) {
             wtrace_debug(L" item[%X]: %ls\t[%d]ivalue: %.04lf, quality:%d, hr:%ld\n", handle, data->id,
@@ -215,7 +217,7 @@ HRESULT STDMETHODCALLTYPE callback_OnWriteComplete(IOPCDataCallback *           
         unsigned int handle = pClienthandles[i];
         item_data *  data;
         if (handle >= OPCDA2_ITEM_DATA_MAX + OPCDA2_EXTRA_DATA_MAX) continue;
-        data = opcda2_data(base->datas, handle);
+        data = iclist_data(base->datas, handle);
         wtrace_debug(L" item[%ls] write %X\n", data->id, pErrors[i]);
     }
     return S_OK;
