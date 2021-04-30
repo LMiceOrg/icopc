@@ -3,6 +3,10 @@
 /Debug/
 /Release/
 
+/*/build/
+/*/Debug/
+/*/Release/
+
 *.aps
 *.ncb
 *.opt

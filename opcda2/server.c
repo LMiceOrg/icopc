@@ -1,14 +1,14 @@
 /** Copyright 2018, 2021 He Hao<hehaoslj@sina.com> */
-#include <stdlib.h>
 #include <stddef.h>
+#include <stdlib.h>
 
 #include "server.h"
-#include "util_trace.h"
 #include "util_hash.h"
+#include "util_trace.h"
 
 iclist_def_function(connect_list, server_connect)
 
-static inline unsigned int salt_gen() {
+    static inline unsigned int salt_gen() {
     /*
     Seed(n+1) = (a * Seed(n) + c) % m
     Seed(0) = 0x1234
@@ -22,8 +22,8 @@ static inline unsigned int salt_gen() {
 }
 
 static int opcda2_clsid(const wchar_t *host, const wchar_t *prog_id, GUID *clsid) {
-    int             ret     = 1;
-    HRESULT         hr      = S_OK;
+    int             ret = 1;
+    HRESULT         hr  = S_OK;
     COSERVERINFO    svr_info;
     MULTI_QI        qi_list[1];
     IID             cat_id      = IID_CATID_OPCDAServer20;
@@ -32,7 +32,7 @@ static int opcda2_clsid(const wchar_t *host, const wchar_t *prog_id, GUID *clsid
     ULONG           fetched;
 
     if (host == NULL || wcscmp(host, L"127.0.0.1") == 0 || wcscmp(host, L"localhost") == 0) {
-        hr = CLSIDFromProgID(prog_id, clsid);
+        hr  = CLSIDFromProgID(prog_id, clsid);
         ret = 0;
         goto clean_up;
     }
@@ -44,8 +44,8 @@ static int opcda2_clsid(const wchar_t *host, const wchar_t *prog_id, GUID *clsid
     qi_list[0].pIID = &IID_IOPCServerList;
 
     /* 获取 IID_IClassFactory */
-    hr = CoCreateInstanceEx(&CLSID_IOPCServerList, 0, CLSCTX_LOCAL_SERVER | CLSCTX_REMOTE_SERVER,
-                            &svr_info, sizeof(qi_list) / sizeof(MULTI_QI), qi_list);
+    hr = CoCreateInstanceEx(&CLSID_IOPCServerList, 0, CLSCTX_LOCAL_SERVER | CLSCTX_REMOTE_SERVER, &svr_info,
+                            sizeof(qi_list) / sizeof(MULTI_QI), qi_list);
     if (FAILED(hr)) {
         trace_debug("can not create CLSID_IOPCServerList\n");
         goto clean_up;
@@ -97,11 +97,11 @@ static OPCHANDLE opcda2_server_get_group_handle() {
 }
 
 int opcda2_serverlist_fetch(const wchar_t *host, int *size, server_info **info_list) {
-    int             ret     = 1;
+    int             ret = 1;
     HRESULT         hr;
-    IOPCServerList *server_list  = NULL;
-    IEnumGUID *     ienum_guid   = NULL;
-    IID             cat_id       = IID_CATID_OPCDAServer20;
+    IOPCServerList *server_list = NULL;
+    IEnumGUID *     ienum_guid  = NULL;
+    IID             cat_id      = IID_CATID_OPCDAServer20;
     GUID            clsid;
     ULONG           fetched;
     MULTI_QI        qi_list[1];
@@ -173,15 +173,14 @@ clean_up:
 void opcda2_serverlist_clear(int size, server_info *info_list) {
     int i;
     for (i = 0; i < size; ++i) {
-        server_info* info = info_list + i;
+        server_info *info = info_list + i;
         CoTaskMemFree(info->prog_id);
         CoTaskMemFree(info->user_type);
     }
     CoTaskMemFree(info_list);
 }
 
-int opcda2_connect_init(server_connect * c, const wchar_t *host, const wchar_t *prog_id,
-                        data_list *items) {
+int opcda2_connect_init(server_connect *c, const wchar_t *host, const wchar_t *prog_id, data_list *items) {
     int                           ret = 1;
     HRESULT                       hr;
     COSERVERINFO                  svr_info;
@@ -202,7 +201,7 @@ int opcda2_connect_init(server_connect * c, const wchar_t *host, const wchar_t *
     memset((char *) c + offsetof(server_connect, cookie), 0, sizeof(server_connect) - offsetof(server_connect, cookie));
 
     /* 设置 connect 常量 */
-    c->datas    = items;
+    c->datas = items;
     memcpy(c->host, host, wcslen(host) * sizeof(wchar_t));
     memcpy(c->prog_id, prog_id, wcslen(prog_id) * sizeof(wchar_t));
 
@@ -220,12 +219,13 @@ int opcda2_connect_init(server_connect * c, const wchar_t *host, const wchar_t *
         trace_debug("CoCreateInstanceEx(%ls, IOPCServer) failed %ld\n", host, hr);
         goto clean_up;
     }
-    svr = (IOPCServer *) qi_list[0].pItf;
-    browse = (IOPCBrowseServerAddressSpace*) qi_list[1].pItf;
+    svr    = (IOPCServer *) qi_list[0].pItf;
+    browse = (IOPCBrowseServerAddressSpace *) qi_list[1].pItf;
 
     if (svr == NULL) goto clean_up;
 
-    /* 2.1 获取Server状态 */
+        /* 2.1 获取Server状态 */
+#if 1
     hr = svr->lpVtbl->GetStatus(svr, &svr_status);
     if (SUCCEEDED(hr)) {
         wtrace_debug(L"connect server vendor: %ls\n", svr_status->szVendorInfo);
@@ -235,7 +235,9 @@ int opcda2_connect_init(server_connect * c, const wchar_t *host, const wchar_t *
         CoTaskMemFree(svr_status->szVendorInfo);
         CoTaskMemFree(svr_status);
     }
-    /* 3 IOPCBrowseServerAddressSpace */
+#endif
+/* 3 IOPCBrowseServerAddressSpace */
+#if 1
     if (browse) {
         OPCNAMESPACETYPE ns;
         IEnumString *    enum_str = NULL;
@@ -279,12 +281,13 @@ int opcda2_connect_init(server_connect * c, const wchar_t *host, const wchar_t *
                     if (str == NULL) continue;
                     if (wcslen(str) >= OPCDA2_ITEM_ID_LEN) {
                         wtrace_debug(L"item id(%ls) length >= 32\n", str);
-                        continue;
+                    } else {
+                        wtrace_debug(L"item id(%ls)\n", str);
+                        wcscpy(c->item_list[c->item_size].id, str);
+                        c->item_size++;
                     }
-                    wtrace_debug(L"item id(%ls)\n", str);
-                    wcscpy(c->item_list[c->item_size].id, str);
-                    c->item_size++;
                     CoTaskMemFree(str);
+                    strs[i] = NULL;
                 }
             }
             enum_str->lpVtbl->Release(enum_str);
@@ -310,6 +313,7 @@ int opcda2_connect_init(server_connect * c, const wchar_t *host, const wchar_t *
                     if (str) {
                         wtrace_debug(L"item path: %ls\n", str);
                         CoTaskMemFree(str);
+                        strs[i] = NULL;
                     }
                 }
             }
@@ -320,30 +324,29 @@ int opcda2_connect_init(server_connect * c, const wchar_t *host, const wchar_t *
     } else {
         trace_debug("connect QueryInterface(IID_IOPCBrowseServerAddressSpace) failed %ld\n", hr);
     }
+#endif
 
     /* 初始化成功 */
-    ret = 0;
+    c->svr = svr;
+    ret    = 0;
 clean_up:
+    if (browse) browse->lpVtbl->Release(browse);
+    if (ret != 0 && svr) svr->lpVtbl->Release(svr);
     return ret;
 }
-int opcda2_connect_add(connect_list* clist, const wchar_t* host, const wchar_t* prog_id, data_list* items,
-                          server_connect** conn) {
-#if 0
-int opcda2_connect_add(const wchar_t *host, const wchar_t *prog_id, data_list *items, server_connect **conn) {
-#endif
-    int              ret = 1;
-    server_connect * c          = NULL;
-    unsigned int     hash;
-    unsigned int     handle;
-
-
+int opcda2_connect_add(connect_list *clist, const wchar_t *host, const wchar_t *prog_id, data_list *items,
+                       server_connect **conn) {
+    int             ret = 1;
+    server_connect *c   = NULL;
+    unsigned int    hash;
+    unsigned int    handle;
 
     /* 1. 初始化 */
     *conn = NULL;
 
     /* 计算 server hash */
-    hash = eal_hash32_fnv1a(host, wcslen(host)*sizeof(wchar_t));
-    hash = iclist_connect_list_hash(prog_id, wcslen(prog_id)*sizeof(wchar_t), hash);
+    hash = eal_hash32_fnv1a(host, wcslen(host) * sizeof(wchar_t));
+    hash = iclist_connect_list_hash(prog_id, wcslen(prog_id) * sizeof(wchar_t), hash);
 
     /* 插入 散列表 */
     handle = iclist_connect_list_add(clist, hash);
@@ -355,26 +358,31 @@ int opcda2_connect_add(const wchar_t *host, const wchar_t *prog_id, data_list *i
     /* 初始化connect */
     ret = opcda2_connect_init(c, host, prog_id, items);
     if (ret != 0) {
+        trace_debug("opcda2_connect_init failed\n");
         goto clean_up;
     }
-
+#if 1
     /* 4 创建 客户端接口 回调对象 */
     opcda2_callback_create(clist, c, &c->callback);
     /* 4.1 注册 通知 */
     opcda2_server_advise(c, NULL);
-
+#endif
     /* 设置返回值 */
-    *conn  = c;
+    *conn = c;
 
 clean_up:
     /* 清除已插入的对象 */
-    if (c) iclist_connect_list_del(clist, handle);
+    if (*conn == NULL && c != NULL) {
+        iclist_connect_list_del(clist, handle);
+        opcda2_connect_del(clist, c);
+    }
 
     return ret;
 }
 
-void opcda2_connect_del(connect_list* clist, server_connect *conn) {
+void opcda2_connect_del(connect_list *clist, server_connect *conn) {
     int i;
+
     trace_debug("call opcda2_connect_del\n");
 
     /* 1. 注销 通知 Shutdown */
@@ -384,6 +392,7 @@ void opcda2_connect_del(connect_list* clist, server_connect *conn) {
     if (conn->callback) {
         conn->callback->lpVtbl->Release(conn->callback);
         conn->callback = NULL;
+        trace_debug("conn del callback\n");
     }
 
     /* 2. 清除 groups */
@@ -403,6 +412,7 @@ void opcda2_connect_del(connect_list* clist, server_connect *conn) {
     if (conn->svr) {
         conn->svr->lpVtbl->Release(conn->svr);
         conn->svr = NULL;
+        trace_debug("conn del svr\n");
     }
 
     iclist_connect_list_del(clist, conn->handle);
@@ -423,7 +433,7 @@ int opcda2_server_advise(server_connect *conn, IUnknown *cb) {
     return ret;
 }
 
-void opcda2_server_unadvise(server_connect*conn) {
+void opcda2_server_unadvise(server_connect *conn) {
     int i;
     /* 取消 server 通知 Shutdown */
     opcda2_server_unadvise_shutdown(conn);
@@ -462,7 +472,7 @@ void opcda2_server_unadvise_shutdown(server_connect *conn) {
         /* 3 取消通知 */
         hr = cp->lpVtbl->Unadvise(cp, cookie);
         if (FAILED(hr)) {
-            trace_debug("server Advise(IID_IOPCShutdown) faild %ld\n", hr);
+            trace_debug("server Unadvise(IID_IOPCShutdown) faild %ld\n", hr);
             goto clean_up;
         }
     }
@@ -523,7 +533,6 @@ int opcda2_server_advise_shutdown(server_connect *conn, IUnknown *sd) {
         goto clean_up;
     }
 
-
     ret = 0;
 clean_up:
 
@@ -551,8 +560,13 @@ int opcda2_group_add(server_connect *conn, const wchar_t *name, int active, int 
     group *                    new_grp    = NULL;
     FLOAT                      dead_band  = 0;
     const DWORD                locale_id  = 0x409; /* english */
-    int i;
-    size_t name_len;
+    int                        i;
+    size_t                     name_len;
+
+    *grp = NULL;
+
+    if (conn == NULL) return ret;
+    if (conn->svr == NULL) return ret;
 
     if (wcslen(name) >= 32) {
         wtrace_debug(L"group name(%ls) too long", name);
@@ -577,7 +591,6 @@ int opcda2_group_add(server_connect *conn, const wchar_t *name, int active, int 
     /* 找不到可插入组 */
     if (new_grp == NULL) goto clean_up;
 
-
     cli_group = opcda2_server_get_group_handle();
 
     /* 1 向server增加组 */
@@ -587,7 +600,7 @@ int opcda2_group_add(server_connect *conn, const wchar_t *name, int active, int 
         goto clean_up;
     }
 
-      /* 2 获取Group 接口 */
+    /* 2 获取Group 接口 */
     /* ItemMgt */
     hr = grp_mgt->lpVtbl->QueryInterface(grp_mgt, &IID_IOPCItemMgt, (void **) &itm_mgt);
     if (FAILED(hr)) {
@@ -616,9 +629,8 @@ int opcda2_group_add(server_connect *conn, const wchar_t *name, int active, int 
     memset(new_grp, 0, sizeof(group));
     memcpy(new_grp->name, name, sizeof(wchar_t) * name_len);
 
-
     new_grp->used       = 1;
-    new_grp->cli_group = cli_group;
+    new_grp->cli_group  = cli_group;
     new_grp->svr_handle = svr_handle;
     new_grp->active     = active;
     new_grp->rate       = svr_rate;
@@ -629,11 +641,11 @@ int opcda2_group_add(server_connect *conn, const wchar_t *name, int active, int 
     new_grp->svr_handle = svr_handle;
     new_grp->grp_mgt    = grp_mgt;
     new_grp->itm_mgt    = itm_mgt;
-    new_grp->async_io2 = async_io2;
+    new_grp->async_io2  = async_io2;
     new_grp->cp         = cp;
-    new_grp->salt = salt_gen();
-    new_grp->hash = eal_hash32_fnv1a_more(name, name_len*sizeof(wchar_t), conn->hash);
-    new_grp->hash = eal_hash32_fnv1a_more(&new_grp->salt, 4, new_grp->hash);
+    new_grp->salt       = salt_gen();
+    new_grp->hash       = eal_hash32_fnv1a_more(name, name_len * sizeof(wchar_t), conn->hash);
+    new_grp->hash       = eal_hash32_fnv1a_more(&new_grp->salt, 4, new_grp->hash);
 
     /* 更新 group 数量 */
     conn->grp_size++;
@@ -641,10 +653,10 @@ int opcda2_group_add(server_connect *conn, const wchar_t *name, int active, int 
     /* 注册 callback */
     opcda2_group_advise_callback(new_grp, conn->callback);
 
-
     *grp = new_grp;
     ret  = 0;
-    wtrace_debug(L"add grp(%ls) handle [%d] hash %u svr %u\n", new_grp->name, new_grp->cli_group, new_grp->hash, conn->hash);
+    wtrace_debug(L"add grp(%ls) handle [%d] hash %u svr %u\n", new_grp->name, new_grp->cli_group, new_grp->hash,
+                 conn->hash);
 clean_up:
     if (cp_ter) cp_ter->lpVtbl->Release(cp_ter);
 

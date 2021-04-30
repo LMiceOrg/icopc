@@ -108,13 +108,14 @@ ULONG STDMETHODCALLTYPE callback_AddRef(IOPCDataCallback *self) {
 ULONG STDMETHODCALLTYPE callback_Release(IOPCDataCallback *self) {
     LONG              count;
     client_interface *base;
-
+    trace_debug("Releasing callback\n");
     base  = (client_interface *) (self);
     count = InterlockedDecrement(&base->ref_count);
     if (count == 0) {
         CoTaskMemFree(self);
+        trace_debug("Release callback\n");
     }
-    trace_debug("Release %ld\n", count);
+
     return count;
 }
 
@@ -288,8 +289,9 @@ HRESULT STDMETHODCALLTYPE shutdown_ShutdownRequest(IOPCShutdown *             se
                      reason, base->conn->grp_size);
 
         /* 清除列表元素 */
+        opcda2_connect_del(base->clist, base->conn);
         iclist_connect_list_del(base->clist, base->conn->handle);
-        base->conn = NULL;
+        trace_debug("ShutdownRequest done\n");
     }
 
     return S_OK;
@@ -305,7 +307,7 @@ static IOPCShutdownVtbl private_shutdown_vtbl = {shutdown_QueryInterface, shutdo
                                                  shutdown_ShutdownRequest};
 
 /* 创建callback对象 */
-int opcda2_callback_create(struct connect_list*clist, struct server_connect* conn, IUnknown **cb) {
+int opcda2_callback_create(connect_list*clist, server_connect* conn, IUnknown **cb) {
     client_interface *it;
 
     /* 创建对象内存 */

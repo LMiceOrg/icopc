@@ -301,7 +301,7 @@ int main_test() {
         }
     }
 
-    trace_debug("server conn size%d\n", sizeof(connect_list) );
+    trace_debug("server conn struct size:%d\n", sizeof(connect_list));
 
     _CrtSetDbgFlag(_CRTDBG_LEAK_CHECK_DF);
 
@@ -316,7 +316,7 @@ int main_test() {
   HeapSummary(heap, 0, &summary);
   trace_debug("heap: alloc:%lu  commit: %lu reserv: %lu\n", summary.cbAllocated, summary.cbCommitted, summary.cbReserved);
 #endif
-
+#if 0
     {
 
         server_info *info_list;
@@ -333,28 +333,34 @@ int main_test() {
         }
         opcda2_serverlist_clear(size, info_list);
     }
+#endif
 
     {
         data_list *     items;
-        connect_list * clist;
-        server_connect *conn;
-        group *         grp = NULL;
+        connect_list *  clist = NULL;
+        server_connect *conn  = NULL;
+        group *         grp   = NULL;
 
         items = iclist_data_list_alloc(NULL);
         clist = iclist_connect_list_alloc(opcda2_connect_del);
+#if 1
         opcda2_connect_add(clist, L"127.0.0.1", L"Matrikon.OPC.Simulation.1", items, &conn);
 
         for (i = 0; i < conn->item_size; ++i) {
             wtrace_debug(L"item id:%ls\n", conn->item_list[i].id);
         }
         trace_debug("connect size:%d\n", iclist_size(clist));
-
+        trace_debug("conn using:%d\n", conn->used);
+#endif
+#if 0
         /* test add group */
-
+        trace_debug("add group %p\n", (void*)conn );
         opcda2_group_add(conn, L"group001", 1, 2000, &grp);
+        trace_debug("add item %p\n", (void*)grp );
         opcda2_item_add(grp, 3, (const wchar_t *) item_id, item_active);
+#endif
 
-#if 1
+#if 0
         opcda2_group_add(conn, L"group002", 1, 4000, &grp);
         opcda2_item_add(grp, item_size, (const wchar_t *) item_id, item_active);
         opcda2_group_add(conn, L"group003", 1, 3000, &grp);
@@ -364,8 +370,8 @@ int main_test() {
 #endif
 
         Sleep(10000);
-
-        trace_debug("test write data conn used:%d\n", conn->used);
+#if 0
+        trace_debug("test write data conn used:%d itm_mgt:%p\n", conn->used, (void*)grp->itm_mgt);
         opcda2_item_add(grp, 3, (const wchar_t *) item_write_id, item_active);
         opcda2_item_add(grp, 3, (const wchar_t *) item_id[3], item_active);
         Sleep(1000);
@@ -373,13 +379,16 @@ int main_test() {
         Sleep(2000);
         opcda2_item_refresh(grp);
         Sleep(5000);
+#endif
 
+#if 1
         /* 清除列表所有元素 */
         /* iclist_connect_list_clear(clist); */
 
         /* 释放列表 */
-        iclist_data_list_free(items);
         iclist_connect_list_free(clist);
+        iclist_data_list_free(items);
+#endif
     }
 
     _CrtDumpMemoryLeaks();
@@ -423,14 +432,14 @@ printf("call heap summary\n");
 #include <tlhelp32.h>
 
 typedef struct abc_item {
-  ICLIST_DATAHEAD
-  int pid;
-}abc_item;
+    ICLIST_DATAHEAD
+    int pid;
+} abc_item;
 
 iclist_def_prototype(abc, abc_item, 15, 3);
 iclist_def_function(abc, abc_item)
 
-int main() {
+    int main() {
     DWORD c_tid = GetCurrentThreadId();
     /* 初始化COM */
     CoInitializeEx(0, COINIT_MULTITHREADED);
@@ -508,4 +517,3 @@ int main() {
 
     return 0;
 }
-

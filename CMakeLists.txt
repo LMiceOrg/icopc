@@ -10,25 +10,25 @@ IF( ${CMAKE_CXX_COMPILER} MATCHES  "[cg][+][+]")
     IF(${CMAKE_CXX_COMPILER} MATCHES "i686")
         message(" link: 686")
         #SET(CMAKE_EXE_LINKER_FLAGS "")
-        set(COMMON_FLAGS "-m32 -march=i686")
+        set(COMMON_FLAGS "-m32 -march=i686 ")
 
     ELSE()
     ENDIF()
     # -Wno-unused-parameter -Wno-unused-local-typedef -fheinous-gnu-extensions
-    set(COMMON_FLAGS " ${COMMON_FLAGS} -Wno-unused-parameter")
+    set(COMMON_FLAGS " ${COMMON_FLAGS} -Wno-unused-parameter -msse2 -mtune=haswell ")
     set(OpenMP_FLAGS, " -fopenmp -fopenmp-simd -ftree-vectorizer-verbose=1 -ftree-vectorize")
-    set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wpedantic -std=c++11")
+    set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wpedantic -std=c++11 -fno-rtti ")
     set(CMAKE_CXX_FLAGS_DEBUG "-g3 -D_DEBUG")
     set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Os -s")
     # -malign-double  -march=native -mtune=native
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${COMMON_FLAGS}  -mtune=native")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${COMMON_FLAGS}  ")
 
     #-std=gnu99
-    set(CMAKE_C_FLAGS "-Wall -Wextra -Wpedantic -std=gnu99")
+    set(CMAKE_C_FLAGS "-Wall -Wextra -Wpedantic -std=c89 -Dinline=_inline")
     set(CMAKE_C_FLAGS_DEBUG "-g3 -D_DEBUG")
     set(CMAKE_C_FLAGS_RELEASE "-O3 -Os -s")
     # -malign-double
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${COMMON_FLAGS}  -mtune=native")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${COMMON_FLAGS}  ")
 
 
     message("c  flag:${CMAKE_C_FLAGS} ")
@@ -152,8 +152,10 @@ opcda2/opcda2_all.c
 opcda2/server.c
 opcda2/callback.c
 opcda2/group.c
-opcda2/util_list.c
+#opcda2/util_list.c
 opcda2/util_hash.c
+opcda2/util_trace.c
+opcda2/util_ticketlock.c
 )
 ADD_LIBRARY(opcda2_static STATIC ${opcda2_SRCS})
 target_compile_definitions(opcda2_static PUBLIC "-DWIN32_LEAN_AND_MEAN -D_WIN32_WINNT=0x0401")
@@ -169,5 +171,5 @@ opcda2/test_opc.c
 
 add_executable(testopc ${testopc_SRCS})
 #-luuid -lKernel32
-target_link_libraries( testopc  opcda2_static websocket_static -lole32 -lOleAut32)
+target_link_libraries( testopc  opcda2_static -lole32 -lOleAut32)
 target_compile_definitions(testopc PUBLIC "-DWIN32_LEAN_AND_MEAN -D_WIN32_WINNT=0x0401")
