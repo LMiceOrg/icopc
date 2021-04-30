@@ -318,8 +318,11 @@ int main_test() {
 #endif
 
     {
+
         server_info *info_list;
         int          size;
+
+
         opcda2_serverlist_fetch(L"127.0.0.1", &size, &info_list);
         printf("info_list size %d\n", size);
         if (info_list) {
@@ -333,21 +336,25 @@ int main_test() {
 
     {
         data_list *     items;
+        connect_list * clist;
         server_connect *conn;
         group *         grp = NULL;
 
-        items = iclist_data_list_alloc();
-        opcda2_server_connect(L"127.0.0.1", L"Matrikon.OPC.Simulation.1", items, &conn);
+        items = iclist_data_list_alloc(NULL);
+        clist = iclist_connect_list_alloc(opcda2_connect_del);
+        opcda2_connect_add(clist, L"127.0.0.1", L"Matrikon.OPC.Simulation.1", items, &conn);
+
         for (i = 0; i < conn->item_size; ++i) {
             wtrace_debug(L"item id:%ls\n", conn->item_list[i].id);
         }
+        trace_debug("connect size:%d\n", iclist_size(clist));
 
         /* test add group */
 
         opcda2_group_add(conn, L"group001", 1, 2000, &grp);
         opcda2_item_add(grp, 3, (const wchar_t *) item_id, item_active);
 
-#if 0
+#if 1
         opcda2_group_add(conn, L"group002", 1, 4000, &grp);
         opcda2_item_add(grp, item_size, (const wchar_t *) item_id, item_active);
         opcda2_group_add(conn, L"group003", 1, 3000, &grp);
@@ -358,7 +365,7 @@ int main_test() {
 
         Sleep(10000);
 
-        trace_debug("test write data\n");
+        trace_debug("test write data conn used:%d\n", conn->used);
         opcda2_item_add(grp, 3, (const wchar_t *) item_write_id, item_active);
         opcda2_item_add(grp, 3, (const wchar_t *) item_id[3], item_active);
         Sleep(1000);
@@ -367,9 +374,12 @@ int main_test() {
         opcda2_item_refresh(grp);
         Sleep(5000);
 
-        opcda2_server_disconnect(conn);
-        CoTaskMemFree(conn);
+        /* 清除列表所有元素 */
+        /* iclist_connect_list_clear(clist); */
+
+        /* 释放列表 */
         iclist_data_list_free(items);
+        iclist_connect_list_free(clist);
     }
 
     _CrtDumpMemoryLeaks();

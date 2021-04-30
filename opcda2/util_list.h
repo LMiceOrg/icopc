@@ -2,11 +2,11 @@
 #ifndef OPCDA2_UTIL_LIST_H_
 #define OPCDA2_UTIL_LIST_H_
 
+#include "util_hash.h"
 #include "util_ticketlock.h"
 #include "util_trace.h"
-#include "util_hash.h"
 
-#define ICLIST_INVALID_HANDLE ((unsigned int)0xFFFFFFFF)
+#define ICLIST_INVALID_HANDLE ((unsigned int) 0xFFFFFFFF)
 #define ICLIST_NOTUSE 0
 #define ICLIST_USING 1
 #define ICLIST_HASCHILD 2
@@ -25,34 +25,30 @@ typedef struct iclist_head {
 } iclist_head;
 
 /* 散列表 */
-#define iclist_def_prototype(_type, _item, data_size, extra_size)                               \
-    typedef struct _type {                                                                      \
-        int          size;                                                                      \
-        ticketlock_t lock;                                                                      \
-        _item        data[data_size];                                                           \
-        _item        extra[extra_size];                                                         \
-    } _type;                                                                                    \
-    typedef enum _type##_enum{_type##_item_size = sizeof(_item), _type##_data_size = data_size, \
-                              _type##_extra_size = extra_size,                                  \
-                              _type##_capacity   = (data_size + extra_size)} _type##_enum;        \
-    extern _item*       iclist_##_type##_find(_type* pt, unsigned int handle);                  \
-    extern unsigned int iclist_##_type##_add(_type* pt, unsigned int hash);                     \
-    extern void         iclist_##_type##_del(_type* pt, unsigned int handle);                   \
-    extern _type*       iclist_##_type##_alloc();                                               \
-    extern void         iclist_##_type##_free(_type* pt);                                       \
-    extern unsigned int iclist_##_type##_hash(const void* data, unsigned int len, unsigned int hval)
+#define iclist_def_prototype(_type, _item, data_size, extra_size)                                \
+    struct _type;                                                                                \
+    typedef void (*_type##_release_callback)(struct _type * pt, _item * dt);                     \
+    typedef struct _type {                                                                       \
+        int                      size;                                                           \
+        ticketlock_t             lock;                                                           \
+        _type##_release_callback release;                                                        \
+        _item                    data[data_size];                                                \
+        _item                    extra[extra_size];                                              \
+    } _type;                                                                                     \
+    typedef enum _type##_enum{_type##_item_size = sizeof(_item), _type##_data_size = data_size,  \
+                              _type##_extra_size = extra_size,                                   \
+                              _type##_capacity   = (data_size + extra_size)} _type##_enum;         \
+    extern unsigned int iclist_##_type##_add(_type* pt, unsigned int hash);                      \
+    extern void         iclist_##_type##_del(_type* pt, unsigned int handle);                    \
+    extern _type*       iclist_##_type##_alloc(_type##_release_callback cb);                     \
+    extern void         iclist_##_type##_free(_type* pt);                                        \
+    extern unsigned int iclist_##_type##_hash(const void* dt, unsigned int len, unsigned int h); \
+    extern void         iclist_##_type##_clear(_type* pt)
 
 /* 散列表函数 */
 #define iclist_def_function(_type, _item)                                                         \
-    _item* iclist_##_type##_find(_type* pt, unsigned int handle) {                                \
-        _item* data = NULL;                                                                       \
-        if (handle < _type##_capacity) {                                                          \
-            data = pt->data + handle;                                                             \
-        }                                                                                         \
-        return data;                                                                              \
-    }                                                                                             \
     unsigned int iclist_##_type##_add(_type* pt, unsigned int hash) {                             \
-        _item*       data      = iclist_##_type##_find(pt, hash);                                 \
+        _item*       data      = iclist_data(pt, hash);                                           \
         unsigned int handle    = ICLIST_INVALID_HANDLE;                                           \
         int          extra_pos = 0;                                                               \
         _item*       parent    = NULL;                                                            \
@@ -133,12 +129,16 @@ typedef struct iclist_head {
         }                                                                                         \
         iclist_unlock(pt);                                                                        \
     }                                                                                             \
-    _type* iclist_##_type##_alloc() {                                                             \
+    _type* iclist_##_type##_alloc(_type##_release_callback cb) {                                  \
         _type* pt = (_type*) CoTaskMemAlloc(sizeof(_type));                                       \
         memset(pt, 0, sizeof(_type));                                                             \
+        pt->release = cb;                                                                         \
         return pt;                                                                                \
     }                                                                                             \
-    void         iclist_##_type##_free(_type* pt) { CoTaskMemFree(pt); }                          \
+    void iclist_##_type##_free(_type* pt) {                                                       \
+        iclist_##_type##_clear(pt);                                                               \
+        CoTaskMemFree(pt);                                                                        \
+    }                                                                                             \
     unsigned int iclist_##_type##_hash(const void* data, unsigned int len, unsigned int hval) {   \
         unsigned int hash;                                                                        \
         if (hval == 0)                                                                            \
@@ -147,22 +147,42 @@ typedef struct iclist_head {
             hval = eal_hash32_fnv1a_more(data, len, hval);                                        \
         hash = eal_hash32_ton(hval, _type##_data_size);                                           \
         return hash;                                                                              \
+    }                                                                                             \
+    void iclist_##_type##_clear(_type* pt) {                                                      \
+        unsigned int handle;                                                                      \
+        for (handle = 0; handle < _type##_capacity; ++handle) {                                   \
+            _item* data = iclist_data(pt, handle);                                                \
+            iclist_##_type##_del(pt, handle);                                                     \
+            /* 调用释放资源回调函数 */                                                  \
+            if (pt->release) pt->release(pt, data);                                               \
+        }                                                                                         \
     }
 
-#define iclist_alloc(pt, _type) \
-  (pt) = (_type*) CoTaskMemAlloc(sizeof(_type)); \
-  memset((pt), 0, sizeof(_type))
+#define iclist_alloc(_type, pt, cb)                \
+    (pt) = (_type*) CoTaskMemAlloc(sizeof(_type)); \
+    memset((pt), 0, sizeof(_type));                \
+    pt->release = cb;
 
-#define iclist_free(pt) CoTaskMemFree(pt)
+#define iclist_free(_type, pt) \
+    iclist_clear(_type, pt);   \
+    CoTaskMemFree(pt)
 
 #define iclist_lock(pt) eal_ticket_lock(&pt->lock)
 #define iclist_trylock(pt) eal_ticket_trylock(&pt->lock)
 #define iclist_unlock(pt) eal_ticket_unlock(&pt->lock)
 
+#define iclist_clear(_type, pt)                                 \
+    do {                                                        \
+        unsigned int handle;                                    \
+        for (handle = 0; handle < _type##_capacity; ++handle) { \
+            _item* data = iclist_data(pt, handle);              \
+            iclist_##_type##_del(pt, handle);                   \
+            /* 调用释放资源回调函数 */                \
+            if (pt->release) pt->release(pt, data);             \
+        }                                                       \
+    } while (0)
 
 #define iclist_size(pt) ((pt)->size)
-#define iclist_data(pt, hdl) ((pt)->data+ (hdl))
-
-
+#define iclist_data(pt, hdl) ((pt)->data + (hdl))
 
 #endif /** OPCDA2_UTIL_LIST_H_ */

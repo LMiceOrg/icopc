@@ -17,6 +17,7 @@ typedef struct client_interface {
     volatile LONG                ref_count; /* 引用计数 */
     data_list *                  datas;     /* 数据表 用于 DataCallback */
     server_connect *             conn;      /* 通知连接关闭 用于Shutdown */
+    connect_list *               clist;     /* 通知连接关闭 用于Shutdown */
 } client_interface;
 
 HRESULT STDMETHODCALLTYPE callback_QueryInterface(/* [in] */ IOPCDataCallback *This,
@@ -285,7 +286,9 @@ HRESULT STDMETHODCALLTYPE shutdown_ShutdownRequest(IOPCShutdown *             se
     if (base->conn) {
         wtrace_debug(L"host[%ls] server[%ls] shutdown :%ls, group count:%ld \n", base->conn->host, base->conn->prog_id,
                      reason, base->conn->grp_size);
-        opcda2_server_disconnect(base->conn);
+
+        /* 清除列表元素 */
+        iclist_connect_list_del(base->clist, base->conn->handle);
         base->conn = NULL;
     }
 
@@ -302,7 +305,7 @@ static IOPCShutdownVtbl private_shutdown_vtbl = {shutdown_QueryInterface, shutdo
                                                  shutdown_ShutdownRequest};
 
 /* 创建callback对象 */
-int opcda2_callback_create(struct server_connect* conn, IUnknown **cb) {
+int opcda2_callback_create(struct connect_list*clist, struct server_connect* conn, IUnknown **cb) {
     client_interface *it;
 
     /* 创建对象内存 */
@@ -316,6 +319,7 @@ int opcda2_callback_create(struct server_connect* conn, IUnknown **cb) {
     it->shutdown.lpVtbl = &private_shutdown_vtbl;
 
     it->conn = conn;
+    it->clist = clist;
     it->datas = conn->datas;
 
     /* 增加引用计数 */

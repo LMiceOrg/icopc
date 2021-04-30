@@ -5,11 +5,12 @@
 #include "opcda2_all.h"
 
 struct server_connect;
+struct connect_list;
 
 /* support IUnknown, IOPCDataCallback IOPCShutdown
 Important: call Release when finish
 每个OPCServer连接可以共享同一个callback对象
 */
-int opcda2_callback_create(struct server_connect* conn, IUnknown **cb);
+int opcda2_callback_create(struct connect_list*clist, struct server_connect* conn, IUnknown **cb);
 
 #endif /**  OPCDA2_CALLBACK_H_ */

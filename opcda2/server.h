@@ -66,11 +66,16 @@ void opcda2_free(connect_list* cl);
 int opcda2_serverlist_fetch(const wchar_t *host, int* size, server_info **info_list);
 void opcda2_serverlist_clear(int size,  server_info *info_list);
 
-/** 操作 OPCServer **/
+/** 操作 OPCServer 连接 **/
+
+/* 初始化connect, 成功返回0 */
+int opcda2_connect_init(server_connect *c, const wchar_t* host, const wchar_t* prog_id,
+                        data_list* items);
 
 /* 连接 OPCServer */
-int opcda2_server_connect(const wchar_t *host, const wchar_t* prog_id, data_list* items, server_connect** conn);
-void opcda2_server_disconnect(server_connect* conn);
+int opcda2_connect_add(connect_list* clist, const wchar_t* host, const wchar_t* prog_id, data_list* items,
+                          server_connect** conn);
+void opcda2_connect_del(connect_list* clist, server_connect* conn);
 
 /** 操作通知 提供：IOPCShutdown IOPCDataCallback 接口 **/
 

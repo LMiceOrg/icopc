@@ -171,6 +171,7 @@ int opcda2_group_advise_callback(group* grp, IUnknown* cb) {
     HRESULT hr;
 
     if (cb == NULL) return ret;
+    if (grp->cp == NULL) return ret;
 
     /* 关闭现有通知 */
     opcda2_group_unadvise_callback(grp);
@@ -184,7 +185,7 @@ int opcda2_group_advise_callback(group* grp, IUnknown* cb) {
 }
 
 void opcda2_group_unadvise_callback(group* grp) {
-    if (grp->cookie) {
+    if (grp->cookie && grp->cp) {
         grp->cp->lpVtbl->Unadvise(grp->cp, grp->cookie);
         grp->cookie = 0;
     }
@@ -210,6 +211,8 @@ int opcda2_item_add(group* grp, int size, const wchar_t* item_ids, int* active) 
     int            item_cnt;
     int            grp_item_base;
     int            i;
+
+    if (grp->itm_mgt == NULL) goto clean_up;
 
     item_def = (OPCITEMDEF*) CoTaskMemAlloc(sizeof(OPCITEMDEF) * size);
     memset(item_def, 0, sizeof(OPCITEMDEF) * size);
@@ -370,6 +373,8 @@ int opcda2_item_del(group* grp, int size, const wchar_t* item_ids) {
     int        remove_size;
     int        i;
     int        j;
+
+    if (grp->itm_mgt == NULL) return 0;
     /* group为空 */
     if (grp->item_size == 0) return 0;
 

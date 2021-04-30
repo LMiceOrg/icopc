@@ -1,5 +1,6 @@
 /** Copyright 2018, 2021 He Hao<hehaoslj@sina.com> */
 #include <stdlib.h>
+#include <stddef.h>
 
 #include "server.h"
 #include "util_trace.h"
@@ -20,6 +21,72 @@ static inline unsigned int salt_gen() {
     return seed;
 }
 
+static int opcda2_clsid(const wchar_t *host, const wchar_t *prog_id, GUID *clsid) {
+    int             ret     = 1;
+    HRESULT         hr      = S_OK;
+    COSERVERINFO    svr_info;
+    MULTI_QI        qi_list[1];
+    IID             cat_id      = IID_CATID_OPCDAServer20;
+    IOPCServerList *server_list = NULL;
+    IEnumGUID *     ienum_guid  = NULL;
+    ULONG           fetched;
+
+    if (host == NULL || wcscmp(host, L"127.0.0.1") == 0 || wcscmp(host, L"localhost") == 0) {
+        hr = CLSIDFromProgID(prog_id, clsid);
+        ret = 0;
+        goto clean_up;
+    }
+
+    memset(&svr_info, 0, sizeof(svr_info));
+    svr_info.pwszName = (wchar_t *) host;
+
+    memset(qi_list, 0, sizeof(qi_list));
+    qi_list[0].pIID = &IID_IOPCServerList;
+
+    /* 获取 IID_IClassFactory */
+    hr = CoCreateInstanceEx(&CLSID_IOPCServerList, 0, CLSCTX_LOCAL_SERVER | CLSCTX_REMOTE_SERVER,
+                            &svr_info, sizeof(qi_list) / sizeof(MULTI_QI), qi_list);
+    if (FAILED(hr)) {
+        trace_debug("can not create CLSID_IOPCServerList\n");
+        goto clean_up;
+    }
+    server_list = (IOPCServerList *) qi_list[0].pItf;
+
+    /*获取 IID_CATID_OPCDAServer20*/
+    hr = server_list->lpVtbl->EnumClassesOfCategories(server_list, 1, &cat_id, 1, &cat_id, &ienum_guid);
+    if (FAILED(hr)) {
+        trace_debug("can not run EnumClassesOfCategories(IID_CATID_OPCDAServer20) 0x%X\n", hr);
+        goto clean_up;
+    }
+
+    while ((hr = ienum_guid->lpVtbl->Next(ienum_guid, 1, clsid, &fetched)) == S_OK) {
+        LPOLESTR remote_prog_id;
+        LPOLESTR remote_user_type;
+        hr = server_list->lpVtbl->GetClassDetails(server_list, clsid, &remote_prog_id, &remote_user_type);
+        if (hr == S_OK) {
+            if (wcscmp(prog_id, remote_prog_id) == 0) {
+                /* find it */
+                ret = 0;
+                CoTaskMemFree(remote_prog_id);
+                CoTaskMemFree(remote_user_type);
+                break;
+            }
+            /* wtrace_debug(L"OPCServer prog_id: %ls \tuser_type: %ls\n", prog_id, user_type); */
+            CoTaskMemFree(remote_prog_id);
+            CoTaskMemFree(remote_user_type);
+        }
+    }
+clean_up:
+    if (ienum_guid) {
+        ienum_guid->lpVtbl->Release(ienum_guid);
+    }
+
+    if (server_list) {
+        server_list->lpVtbl->Release(server_list);
+    }
+    return ret;
+}
+
 static OPCHANDLE opcda2_server_get_group_handle() {
     static volatile LONG s_grp_handle = 0;
     OPCHANDLE            handle;
@@ -30,7 +97,7 @@ static OPCHANDLE opcda2_server_get_group_handle() {
 }
 
 int opcda2_serverlist_fetch(const wchar_t *host, int *size, server_info **info_list) {
-    int             ret = 1;
+    int             ret     = 1;
     HRESULT         hr;
     IOPCServerList *server_list  = NULL;
     IEnumGUID *     ienum_guid   = NULL;
@@ -113,68 +180,63 @@ void opcda2_serverlist_clear(int size, server_info *info_list) {
     CoTaskMemFree(info_list);
 }
 
-int opcda2_server_connect(const wchar_t *host, const wchar_t *prog_id, data_list *items, server_connect **conn) {
-    int              ret = 1;
-    HRESULT          hr;
-    COSERVERINFO     svr_info;
-    CLSID            cls_id;
-    MULTI_QI         qi_list[1];
-    OPCSERVERSTATUS *svr_status;
-    server_connect * c;
+int opcda2_connect_init(server_connect * c, const wchar_t *host, const wchar_t *prog_id,
+                        data_list *items) {
+    int                           ret = 1;
+    HRESULT                       hr;
+    COSERVERINFO                  svr_info;
+    CLSID                         cls_id;
+    MULTI_QI                      qi_list[2];
+    OPCSERVERSTATUS *             svr_status = NULL;
+    IOPCServer *                  svr        = NULL;
+    IOPCBrowseServerAddressSpace *browse     = NULL;
 
-    IOPCServer *                  svr    = NULL;
-    IOPCBrowseServerAddressSpace *browse = NULL;
-
-    /* 1. 初始化 */
-    c = (server_connect *) CoTaskMemAlloc(sizeof(server_connect));
     memset(&svr_info, 0, sizeof(svr_info));
-    memset(c, 0, sizeof(server_connect));
-
     svr_info.pwszName = (wchar_t *) host;
-    *conn             = NULL;
-    c->datas          = items;
-
-    /* server hash */
-    c->hash = eal_hash32_fnv1a(host, wcslen(host) * sizeof(wchar_t));
-    c->hash = eal_hash32_fnv1a_more(prog_id, wcslen(prog_id) * sizeof(wchar_t), c->hash);
 
     memset(qi_list, 0, sizeof(qi_list));
     qi_list[0].pIID = &IID_IOPCServer;
+    qi_list[1].pIID = &IID_IOPCBrowseServerAddressSpace;
 
-    CLSIDFromProgID(prog_id, &cls_id);
+    /* 清空 connect */
+    memset((char *) c + offsetof(server_connect, cookie), 0, sizeof(server_connect) - offsetof(server_connect, cookie));
 
-#if 0
-    OLECHAR *str_id;
-    StringFromCLSID(&cls_id, &str_id);
-    wtrace_debug(L"svr(%ls)  clsid: %ls\n", prog_id, str_id);
-#endif
+    /* 设置 connect 常量 */
+    c->datas    = items;
+    memcpy(c->host, host, wcslen(host) * sizeof(wchar_t));
+    memcpy(c->prog_id, prog_id, wcslen(prog_id) * sizeof(wchar_t));
 
-    /* 2 创建Server对象 */
+    /* 1. 获取COM cls_id */
+    hr = opcda2_clsid(host, prog_id, &cls_id);
+    if (hr != 0) {
+        wtrace_debug(L"opcda2_clsid host(%ls) prog_id(%ls) failed\n", host, prog_id);
+        goto clean_up;
+    }
+
+    /* 2 创建OPCServer对象 */
     hr = CoCreateInstanceEx(&cls_id, 0, CLSCTX_LOCAL_SERVER | CLSCTX_INPROC_SERVER | CLSCTX_REMOTE_SERVER, &svr_info,
                             sizeof(qi_list) / sizeof(MULTI_QI), qi_list);
     if (FAILED(hr)) {
         trace_debug("CoCreateInstanceEx(%ls, IOPCServer) failed %ld\n", host, hr);
         goto clean_up;
     }
-    /* 设置OPCServer */
     svr = (IOPCServer *) qi_list[0].pItf;
-    c->svr = svr;
+    browse = (IOPCBrowseServerAddressSpace*) qi_list[1].pItf;
+
+    if (svr == NULL) goto clean_up;
 
     /* 2.1 获取Server状态 */
     hr = svr->lpVtbl->GetStatus(svr, &svr_status);
     if (SUCCEEDED(hr)) {
-        wtrace_debug(L"server vendor: %ls\n", svr_status->szVendorInfo);
-        trace_debug("server status: %d\n", (int) svr_status->dwServerState);
-        trace_debug("server groups: %d\n", (int) svr_status->dwGroupCount);
+        wtrace_debug(L"connect server vendor: %ls\n", svr_status->szVendorInfo);
+        trace_debug("connect server status: %d\n", (int) svr_status->dwServerState);
+        trace_debug("connect server groups: %d\n", (int) svr_status->dwGroupCount);
 
         CoTaskMemFree(svr_status->szVendorInfo);
         CoTaskMemFree(svr_status);
     }
-
-    /* 3 获取IOPCBrowseServerAddressSpace (可能失败) */
-
-    hr = svr->lpVtbl->QueryInterface(svr, &IID_IOPCBrowseServerAddressSpace, (void **) &browse);
-    if (SUCCEEDED(hr)) {
+    /* 3 IOPCBrowseServerAddressSpace */
+    if (browse) {
         OPCNAMESPACETYPE ns;
         IEnumString *    enum_str = NULL;
 
@@ -183,15 +245,15 @@ int opcda2_server_connect(const wchar_t *host, const wchar_t *prog_id, data_list
         trace_debug("svr OPCNAMESPACETYPE %d\n", ns);
 
         /* 3.2 获取 枚举 Itemid */
-        hr = browse->lpVtbl->BrowseOPCItemIDs(browse, OPC_FLAT, L"", VT_EMPTY, OPC_READABLE|OPC_WRITEABLE, &enum_str);
+        hr = browse->lpVtbl->BrowseOPCItemIDs(browse, OPC_FLAT, L"", VT_EMPTY, OPC_READABLE | OPC_WRITEABLE, &enum_str);
         if (SUCCEEDED(hr)) {
-            trace_debug("broew IOCItem IDs\n");
+            trace_debug("browse OPCItem IDs\n");
             for (;;) {
                 LPOLESTR   strs[64];
                 ULONG      count = 0;
                 item_info *new_list;
                 ULONG      mem_size;
-                unsigned i;
+                unsigned   i;
 
                 /* 分配内存 */
                 mem_size = sizeof(item_info) * (64 + c->item_size);
@@ -214,12 +276,12 @@ int opcda2_server_connect(const wchar_t *host, const wchar_t *prog_id, data_list
 
                 for (i = 0; i < count; ++i) {
                     LPOLESTR str = strs[i];
-                    wtrace_debug(L"item id(%ls)\n", str);
                     if (str == NULL) continue;
                     if (wcslen(str) >= OPCDA2_ITEM_ID_LEN) {
                         wtrace_debug(L"item id(%ls) length >= 32\n", str);
                         continue;
                     }
+                    wtrace_debug(L"item id(%ls)\n", str);
                     wcscpy(c->item_list[c->item_size].id, str);
                     c->item_size++;
                     CoTaskMemFree(str);
@@ -255,40 +317,65 @@ int opcda2_server_connect(const wchar_t *host, const wchar_t *prog_id, data_list
         } else {
             trace_debug("svr BrowseAccessPaths failed %ld\n", hr);
         }
-
     } else {
-        trace_debug("svr QueryInterface(IID_IOPCBrowseServerAddressSpace) failed %ld\n", hr);
+        trace_debug("connect QueryInterface(IID_IOPCBrowseServerAddressSpace) failed %ld\n", hr);
+    }
+
+    /* 初始化成功 */
+    ret = 0;
+clean_up:
+    return ret;
+}
+int opcda2_connect_add(connect_list* clist, const wchar_t* host, const wchar_t* prog_id, data_list* items,
+                          server_connect** conn) {
+#if 0
+int opcda2_connect_add(const wchar_t *host, const wchar_t *prog_id, data_list *items, server_connect **conn) {
+#endif
+    int              ret = 1;
+    server_connect * c          = NULL;
+    unsigned int     hash;
+    unsigned int     handle;
+
+
+
+    /* 1. 初始化 */
+    *conn = NULL;
+
+    /* 计算 server hash */
+    hash = eal_hash32_fnv1a(host, wcslen(host)*sizeof(wchar_t));
+    hash = iclist_connect_list_hash(prog_id, wcslen(prog_id)*sizeof(wchar_t), hash);
+
+    /* 插入 散列表 */
+    handle = iclist_connect_list_add(clist, hash);
+    if (handle == ICLIST_INVALID_HANDLE) {
+        goto clean_up;
+    }
+    c = iclist_data(clist, handle);
+
+    /* 初始化connect */
+    ret = opcda2_connect_init(c, host, prog_id, items);
+    if (ret != 0) {
+        goto clean_up;
     }
 
     /* 4 创建 客户端接口 回调对象 */
-    opcda2_callback_create(c, &c->callback);
+    opcda2_callback_create(clist, c, &c->callback);
     /* 4.1 注册 通知 */
     opcda2_server_advise(c, NULL);
 
     /* 设置返回值 */
     *conn  = c;
-    ret    = 0;
 
 clean_up:
+    /* 清除已插入的对象 */
+    if (c) iclist_connect_list_del(clist, handle);
 
-    if (browse) {
-        browse->lpVtbl->Release(browse);
-    }
-    if (ret) {
-        /* 注册失败 */
-        if (c) {
-            CoTaskMemFree(c);
-        }
-        if (svr) {
-            svr->lpVtbl->Release(svr);
-        }
-    }
     return ret;
 }
 
-void opcda2_server_disconnect(server_connect *conn) {
+void opcda2_connect_del(connect_list* clist, server_connect *conn) {
     int i;
-    trace_debug("call svr Release\n");
+    trace_debug("call opcda2_connect_del\n");
 
     /* 1. 注销 通知 Shutdown */
     opcda2_server_unadvise_shutdown(conn);
@@ -317,6 +404,8 @@ void opcda2_server_disconnect(server_connect *conn) {
         conn->svr->lpVtbl->Release(conn->svr);
         conn->svr = NULL;
     }
+
+    iclist_connect_list_del(clist, conn->handle);
 }
 
 int opcda2_server_advise(server_connect *conn, IUnknown *cb) {
@@ -355,7 +444,7 @@ void opcda2_server_unadvise_shutdown(server_connect *conn) {
 
     conn->cookie = 0;
 
-    if (cookie) {
+    if (cookie && svr) {
         /* 1 获取 IConnectionPointContainer */
         hr = svr->lpVtbl->QueryInterface(svr, &IID_IConnectionPointContainer, (void **) &cp_ter);
         if (FAILED(hr)) {
@@ -390,6 +479,8 @@ int opcda2_server_advise_shutdown(server_connect *conn, IUnknown *sd) {
     IConnectionPoint *         cp     = NULL;
     IOPCServer *               svr    = conn->svr;
 
+    if (svr == NULL) goto clean_up;
+
     if (sd == NULL) {
         /* 之前没有callback，返回 */
         if (conn->callback == NULL) return ret;
@@ -402,6 +493,9 @@ int opcda2_server_advise_shutdown(server_connect *conn, IUnknown *sd) {
             conn->callback->lpVtbl->Release(conn->callback);
             conn->callback = NULL;
         }
+        /* 使用设置的sd */
+        conn->callback = sd;
+        sd->lpVtbl->AddRef(sd);
     }
 
     /* 1 获取 IConnectionPointContainer */
@@ -429,8 +523,6 @@ int opcda2_server_advise_shutdown(server_connect *conn, IUnknown *sd) {
         goto clean_up;
     }
 
-    /* 4. 存储此callback对象 */
-    conn->callback = sd;
 
     ret = 0;
 clean_up:
