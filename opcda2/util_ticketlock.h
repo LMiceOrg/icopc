@@ -23,9 +23,24 @@ struct ticketlock_s {
 
 typedef union ticketlock_u ticketlock_t;
 
-__inline void eal_ticket_lock(ticketlock_t *t);
-__inline void eal_ticket_unlock(ticketlock_t *t);
-__inline int eal_ticket_trylock(ticketlock_t *t);
-__inline int eal_ticket_lockable(ticketlock_t *t);
+void eal_ticket_lock(ticketlock_t *t);
+void eal_ticket_unlock(ticketlock_t *t);
+int eal_ticket_trylock(ticketlock_t *t);
+int eal_ticket_lockable(ticketlock_t *t);
+
+#define EAL_ticket_lock(tlock)                     \
+    do {                                           \
+        ticketlock_u * t = (ticketlock_u *) tlock; \
+        unsigned short me;                         \
+        me = eal_atomic_xadd(&t->s.users, 1);      \
+        while (t->s.ticket != me) cpu_relax();     \
+    } while (0)
+
+#define EAL_ticket_unlock(tlock)                  \
+    do {                                          \
+        ticketlock_u *t = (ticketlock_u *) tlock; \
+        barrier();                                \
+        t->s.ticket++;                            \
+    } while (0)
 
 #endif  /** OPCDA2_UTIL_TICKETLOCK_H_ */

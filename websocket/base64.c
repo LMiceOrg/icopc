@@ -1,3 +1,4 @@
+/** Copyright 2018, 2021 He Hao<hehaoslj@sina.com> */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -47,7 +48,7 @@ void base64_encrypt_text(const unsigned char *str, int bytes, char **pebuf,
   const unsigned char *current;
   char *_encode_result = (char *)malloc((bytes * 4) / 3 + 16);
   memset(_encode_result, 0, (bytes * 4) / 3 + 16);
-  
+
   current = str;
   while (bytes > 2) {
     _encode_result[pos++] = base64[current[0] >> 2];

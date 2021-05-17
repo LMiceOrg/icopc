@@ -1,8 +1,10 @@
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required(VERSION 3.18)
 set(HAVE_FLAG_SEARCH_PATHS_FIRST 0)
+SET(CMAKE_SYSTEM_NAME Windows)
 
 project(icOPC)
-
+set(CMAKE_C_LINK_FLAGS "")
+set(CMAKE_CXX_LINK_FLAGS "")
 
 # C/C++ settings
 IF( ${CMAKE_CXX_COMPILER} MATCHES  "[cg][+][+]")
@@ -24,7 +26,7 @@ IF( ${CMAKE_CXX_COMPILER} MATCHES  "[cg][+][+]")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${COMMON_FLAGS}  ")
 
     #-std=gnu99
-    set(CMAKE_C_FLAGS "-Wall -Wextra -Wpedantic -std=c89 -Dinline=_inline")
+    set(CMAKE_C_FLAGS "-Wall -Wextra -Wpedantic -std=gnu99 -Dinline=_inline")
     set(CMAKE_C_FLAGS_DEBUG "-g3 -D_DEBUG")
     set(CMAKE_C_FLAGS_RELEASE "-O3 -Os -s")
     # -malign-double
@@ -49,6 +51,7 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 
     endif()
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+add_definitions("-DWIN32_LEAN_AND_MEAN -D_WIN32_WINNT=0x0401")
 endif()
 
 # FIND_LIBRARY(jansson_libs NAMES jansson
@@ -173,3 +176,23 @@ add_executable(testopc ${testopc_SRCS})
 #-luuid -lKernel32
 target_link_libraries( testopc  opcda2_static -lole32 -lOleAut32)
 target_compile_definitions(testopc PUBLIC "-DWIN32_LEAN_AND_MEAN -D_WIN32_WINNT=0x0401")
+
+# asyncio library
+LIST(APPEND asyncio_SRCS
+lmiced/iocpserver.c
+lmiced/heap.c
+)
+ADD_LIBRARY(asyncio_static STATIC ${asyncio_SRCS})
+#target_compile_definitions(asyncio_static PUBLIC "-DWIN32_LEAN_AND_MEAN -D_WIN32_WINNT=0x0401")
+SET_TARGET_PROPERTIES(asyncio_static PROPERTIES OUTPUT_NAME "asyncio")
+SET_TARGET_PROPERTIES(asyncio_static PROPERTIES CLEAN_DIRECT_OUTPUT 1)
+
+
+#lmiced windows service
+LIST(APPEND lmiced_SRCS
+lmiced/winmain.c
+)
+
+add_executable(lmiced ${lmiced_SRCS})
+target_link_libraries( lmiced  asyncio_static ws2_32)
+target_compile_definitions(lmiced PUBLIC "-DWIN32_LEAN_AND_MEAN -D_WIN32_WINNT=0x0401")

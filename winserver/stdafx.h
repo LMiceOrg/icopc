@@ -7,12 +7,14 @@
 #define _WIN32_IE 0x0400
 #define _RICHEDIT_VER 0x0100
 
-#define WIN32_MEAN_AND_LEAN
-#include <Ws2tcpip.h>
+#define WIN32_LEAN_AND_MEAN
 #include <winsock2.h>
+#include <Ws2tcpip.h>
 
-#include <atlapp.h>
+
 #include <atlbase.h>
+#include <atlapp.h>
+
 #include <atlcrack.h>
 #include <atlmisc.h>
 
@@ -20,10 +22,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "../wtclient/WTclientAPI.h"
-#include "../wtclient/WtclientAPIex.h"
+//#include <Windows.h>
+
 #include "../wtclient/opc_ae.h"
 #include "../wtclient/opcda.h"
+#include "../wtclient/WTclientAPI.h"
+#include "../wtclient/WtclientAPIex.h"
+
 
 #include "../call_thunk/call_thunk.h"
 

@@ -3,10 +3,7 @@
 #include "util_ticketlock.h"
 #include "util_atomic.h"
 
-
-
-void eal_ticket_lock(ticketlock_t *t)
-{
+void eal_ticket_lock(ticketlock_t *t) {
     unsigned short me = eal_atomic_xadd(&t->s.users, 1);
 
     while (t->s.ticket != me) cpu_relax();

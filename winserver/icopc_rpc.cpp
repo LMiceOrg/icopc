@@ -1,5 +1,8 @@
 #include "stdafx.h"
 
+#include <Ws2tcpip.h>
+#include <winsock2.h>
+
 #include <stdlib.h>
 #include <string.h>
 

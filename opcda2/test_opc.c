@@ -291,7 +291,7 @@ int main_test() {
 
         memset(item_write_value + i, 0, sizeof(VARIANT));
         item_write_value[i].vt     = VT_I4;
-        item_write_value[i].intVal = i * 3;
+        item_write_value[i].intVal = i * 6;
         swprintf(item_write_id[i], OPCDA2_ITEM_ID_LEN, L"Write Only.Int%d", surfix[i]);
 
         if (i < 3) {
@@ -302,8 +302,9 @@ int main_test() {
     }
 
     trace_debug("server conn struct size:%d\n", sizeof(connect_list));
-
+#if 0
     _CrtSetDbgFlag(_CRTDBG_LEAK_CHECK_DF);
+#endif
 
 #if 0
   HEAP_SUMMARY summary;
@@ -352,7 +353,7 @@ int main_test() {
         trace_debug("connect size:%d\n", iclist_size(clist));
         trace_debug("conn using:%d\n", conn->used);
 #endif
-#if 0
+#if 1
         /* test add group */
         trace_debug("add group %p\n", (void*)conn );
         opcda2_group_add(conn, L"group001", 1, 2000, &grp);
@@ -360,7 +361,7 @@ int main_test() {
         opcda2_item_add(grp, 3, (const wchar_t *) item_id, item_active);
 #endif
 
-#if 0
+#if 1
         opcda2_group_add(conn, L"group002", 1, 4000, &grp);
         opcda2_item_add(grp, item_size, (const wchar_t *) item_id, item_active);
         opcda2_group_add(conn, L"group003", 1, 3000, &grp);
@@ -370,7 +371,7 @@ int main_test() {
 #endif
 
         Sleep(10000);
-#if 0
+#if 1
         trace_debug("test write data conn used:%d itm_mgt:%p\n", conn->used, (void*)grp->itm_mgt);
         opcda2_item_add(grp, 3, (const wchar_t *) item_write_id, item_active);
         opcda2_item_add(grp, 3, (const wchar_t *) item_id[3], item_active);
@@ -391,7 +392,9 @@ int main_test() {
 #endif
     }
 
+#if 0
     _CrtDumpMemoryLeaks();
+#endif
 
 #if 0
     // Use to convert bytes to KB

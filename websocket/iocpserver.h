@@ -1,3 +1,5 @@
+/** Copyright 2018, 2021 He Hao<hehaoslj@sina.com> */
+
 #ifndef IOCPSERVER_H
 #define IOCPSERVER_H
 
@@ -22,17 +24,14 @@ extern "C" {
 
 #define MAX_WORKER_THREAD 32
 
-//
-// data to be associated for every I/O operation on a socket
-//
 
+/* data to be associated for every I/O operation on a socket */
 typedef struct _iocp_data {
   int type;
   SOCKET fd; /**< file descriptor or signal or process id */
   int (*proc_callback)(void *pdata, LPOVERLAPPED over, DWORD io_len);
   void (*proc_close)(void *ptr);
   void (*proc_timeout)(void *ptr);
-
 } iocp_data;
 
 typedef struct _iocp_data_list {
@@ -40,7 +39,7 @@ typedef struct _iocp_data_list {
   struct _iocp_data_list *next;
 } iocp_datas;
 
-typedef void(_cdecl *iocp_timeout)(void *);
+typedef void(__cdecl *iocp_timeout)(void *);
 
 typedef struct iocp_server {
   HANDLE iocp;
@@ -66,4 +65,4 @@ void iocp_server_join(iocp_server *svr);
 }
 #endif
 
-#endif // IOCPSERVER_H
+#endif  // IOCPSERVER_H

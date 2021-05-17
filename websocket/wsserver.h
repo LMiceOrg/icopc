@@ -1,3 +1,5 @@
+/** Copyright 2018, 2021 He Hao<hehaoslj@sina.com> */
+
 #ifndef WSSERVER_H
 #define WSSERVER_H
 
@@ -168,7 +170,6 @@ typedef struct {
   ws_data_callback data_callback;
   ws_user_close user_close;
   ws_timeout_callback timeout_callback;
-
 } ws_client_data;
 
 typedef struct _ws_accept_data {
@@ -193,7 +194,6 @@ typedef struct _ws_accept_data {
   SOCKET accept_fd; /**< accept socket */
 
   ws_accept_callback accept_callback; /**< 连接请求处理回调函数 */
-
 } ws_accept_data;
 
 /**
@@ -203,7 +203,7 @@ typedef struct _ws_accept_data {
  * @param[in] acb accept callback
  * @retval 0 Success
  */
-int wsserver_start(void *ptr, ws_accept_callback acb);
+int wsserver_start(void *ptr, ws_accept_callback acb, uint16_t listen_port);
 
 /**
  * @fn ws_send

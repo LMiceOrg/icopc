@@ -1,6 +1,6 @@
 /** Copyright 2018, 2021 He Hao<hehaoslj@sina.com> */
 
-#define WIN32_LEAN_AND_MEAN
+
 #include <winsock2.h>
 
 #include <stdio.h>
@@ -14,31 +14,12 @@
 
 static __inline void socket_init(void);
 
-static __inline void iocp_server_proc_close(iocp_server* svr, iocp_data* data);
-
 static DWORD WINAPI iocp_server_main(LPVOID context);
 
 void socket_init() {
     WSADATA wsaData;
 
     WSAStartup(MAKEWORD(2, 2), &wsaData);
-}
-
-void iocp_broadcast_timeout(void* data) {
-    iocp_server* svr = (iocp_server*)data;
-    iocp_datas* datas;
-    EnterCriticalSection(&svr->cs);
-    datas = &svr->datas;
-    do {
-        int i;
-        for (i = 0; i < 32; ++i) {
-            if (datas->data[i] != NULL) {
-                datas->data[i]->proc_timeout(datas->data[i]);
-            }
-        }
-        datas = datas->next;
-    } while (datas);
-    LeaveCriticalSection(&svr->cs);
 }
 
 int iocp_register(iocp_server* svr, iocp_data* data) {
@@ -99,7 +80,6 @@ iocp_server* iocp_server_start(DWORD period) {
     svr = (iocp_server*)iocp_malloc(sizeof(iocp_server));
     svr->iocp_register = iocp_register;
     svr->iocp_unregister = iocp_unregister;
-    svr->timeout_proc = iocp_broadcast_timeout;
     svr->timeout_period = period;
 
     InitializeCriticalSection(&svr->cs);
@@ -215,13 +195,6 @@ DWORD WINAPI iocp_server_main(LPVOID context) {
                                              &overlapped,
                                              svr->timeout_period); /**< wait 10*1000 mill-secs */
 
-        if (state == FALSE && overlapped == NULL) {
-            /** timeout */
-            if (svr->timeout_proc != NULL)
-                svr->timeout_proc(svr);
-
-            continue;
-        }
 
         if (data == NULL)
             return(0);
@@ -238,5 +211,3 @@ DWORD WINAPI iocp_server_main(LPVOID context) {
     return(0);
 }
 
-void iocp_server_proc_close(iocp_server* svr, iocp_data* data) {
-}

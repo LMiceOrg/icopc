@@ -123,7 +123,7 @@ static __inline SOCKET socket_create(void) {
   return (sdSocket);
 }
 
-int wsserver_start(void *ptr, ws_accept_callback acb) {
+int wsserver_start(void *ptr, ws_accept_callback acb, uint16_t listen_port) {
   int ret;
   SOCKET listenfd;
   HANDLE iocp;
@@ -166,7 +166,10 @@ int wsserver_start(void *ptr, ws_accept_callback acb) {
   memset(&server_addr, 0, sizeof(struct sockaddr_in));
   server_addr.sin_family = AF_INET;
   server_addr.sin_addr.s_addr = INADDR_ANY;
-  server_addr.sin_port = htons((unsigned short)opt_websocket_port);
+  if (listen_port == 0)
+    server_addr.sin_port = htons((uint16_t)opt_websocket_port);
+  else
+    server_addr.sin_port = htons((uint16_t)listen_port);
 
   ret = bind(listenfd, (struct sockaddr *)(&server_addr), sizeof(server_addr));
   /*ret = bind(listenfd, addrlocal->ai_addr, addrlocal->ai_addrlen); */
@@ -206,7 +209,7 @@ int wsserver_start(void *ptr, ws_accept_callback acb) {
   iocp =
       CreateIoCompletionPort((HANDLE)listenfd, svr->iocp, (DWORD_PTR)data, 0);
   if (iocp == NULL) {
-    printf("CreateIoCompletionPort() failed: %d\n", GetLastError());
+    printf("CreateIoCompletionPort() failed: %ld\n", GetLastError());
     return (-1);
   }
 
@@ -235,7 +238,7 @@ int wsserver_start(void *ptr, ws_accept_callback acb) {
 
   /* register */
   svr->iocp_register(svr, (iocp_data *)data);
-  printf("fd %d accept fd %d\n", data->fd, data->accept_fd);
+  printf("fd %d accept fd %lld\n", data->fd, data->accept_fd);
 
   return listenfd;
 }
@@ -357,7 +360,6 @@ int ws_accept_proc(void *pdata, LPOVERLAPPED over, DWORD io_size) {
     return ws_client_proc(client_data, &ctx->overlapped, io_size);
 
   } else {
-
     DWORD nRet;
     WSABUF buffRecv;
     DWORD dwRecvNumBytes = 0;
@@ -473,7 +475,6 @@ int ws_io_send(ws_client_data *client, DWORD io_size) {
   ws_io_purge(ctx, io_size);
 
   if (ctx->data_len) {
-
     ctx->op = WS_IO_SENDING;
     ctx->wsabuf.buf = ctx->data;
     ctx->wsabuf.len = ctx->data_len;
@@ -609,7 +610,6 @@ int ws_handshake(ws_client_data *data) {
       /** only check sec_websocket_key */
       break;
     }
-
   } while (1);
 
   if (sec_value == NULL)
@@ -702,7 +702,7 @@ int ws_proc(ws_client_data *client) {
   // check length
   if (data_len < payload_len + pos) {
     return (-1);
-  };
+  }
 
   // unmask payload
   payload = data + pos;
@@ -763,7 +763,7 @@ int ws_proc(ws_client_data *client) {
           } else if (send_size < 65536) {
             pkt->hdr.ws2.fin = 1;
             pkt->hdr.ws2.len = WS_LEN2;
-            pkt->hdr.ws2.len2 = htons((unsigned short)send_size);
+            pkt->hdr.ws2.len2 = htons((uint16_t)send_size);
             pkt->hdr.ws2.mask = 0;
             pkt->hdr.ws2.opcode = WS_DATA1;
             pkt->hdr.ws2.rsv = 0;
@@ -852,7 +852,7 @@ int ws_send_pong(ws_client_data *client) {
 int ws_send_packet(ws_client_data *client, wspkt* pkt, int nbytes) {
     int ret = 0;
 
-    if(nbytes < WS_LEN2) {
+    if (nbytes < WS_LEN2) {
         websocket1 *ws;
         ws = &pkt->hdr.ws1;
         ws->fin = 1;
@@ -863,13 +863,13 @@ int ws_send_packet(ws_client_data *client, wspkt* pkt, int nbytes) {
 
         ret = ws_send(client, (const char*)ws1pkt(pkt), nbytes + 2);
 
-    } else if(nbytes < 65536 ) {
+    } else if (nbytes < 65536) {
         websocket2 *ws;
-        
+
         ws = &pkt->hdr.ws2;
         ws->fin = 1;
         ws->len = WS_LEN2;
-        ws->len2 = htons((unsigned short)nbytes);
+        ws->len2 = htons((uint16_t)nbytes);
         ws->mask = 0;
         ws->opcode = WS_DATA1;
         ws->rsv = 0;
@@ -878,7 +878,7 @@ int ws_send_packet(ws_client_data *client, wspkt* pkt, int nbytes) {
 
     } else {
         websocket3 *ws;
-        
+
         ws = &pkt->hdr.ws3;
         ws->fin = 1;
         ws->len = WS_LEN3;
@@ -916,7 +916,7 @@ int ws_send_data(ws_client_data *client, const char *data, int nbytes) {
     ws = (websocket2 *)(buf);
     ws->fin = 1;
     ws->len = WS_LEN2;
-    ws->len2 = htons((unsigned short)nbytes);
+    ws->len2 = htons((uint16_t)nbytes);
     ws->mask = 0;
     ws->opcode = WS_DATA1;
     ws->rsv = 0;

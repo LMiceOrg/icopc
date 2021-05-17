@@ -1,3 +1,4 @@
+/** Copyright 2018, 2021 He Hao<hehaoslj@sina.com> */
 #ifndef BASE64_H
 #define BASE64_H
 
@@ -11,8 +12,9 @@ void base64_encrypt_text(const unsigned char *str, int bytes, char **pebuf,
 void base64_encrypt_text2(const unsigned char *str, int nbytes, char *pbuf,
                           int elen);
 int base64_encrypt_len(int bytes);
+
 #ifdef __cplusplus
 }
 #endif
 
-#endif  // BASE64_H
+#endif  /** BASE64_H */

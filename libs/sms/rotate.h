@@ -17,7 +17,7 @@
    */
 #  if defined(__i386) || defined(__i386__) || defined(__x86_64) || defined(__x86_64__)
 #   define ROL32(a,n)  ({ register unsigned int ret;   \
-                                asm (                   \
+                                __asm (                   \
                                 "roll %1,%0"            \
                                 : "=r"(ret)             \
                                 : "I"(n), "0"((unsigned int)(a))        \

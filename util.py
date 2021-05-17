@@ -26,4 +26,4 @@ if __name__ == "__main__":
 
     if sys.argv[-2] == "-linecount":
         sz = linecount(sys.argv[-1], 0)
-        print "linecount %s: %d" % (sys.argv[-1], sz)
+        print ("linecount %s: %d" % (sys.argv[-1], sz) )

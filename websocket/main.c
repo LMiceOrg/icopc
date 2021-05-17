@@ -1,3 +1,5 @@
+/** Copyright 2018, 2021 He Hao<hehaoslj@sina.com> */
+
 #define WIN32_LEAN_AND_MEAN
 #include <winsock2.h>
 
@@ -17,11 +19,14 @@
 #endif
 
 #include "../libs/jansson/src/jansson.h"
+#ifdef _WIN32
 
 #ifdef _DEBUG
 #pragma comment(lib, "../libs/jansson/src/jansson-mtd.lib")
 #else
 #pragma comment(lib, "../libs/jansson/src/jansson-mt.lib")
+#endif
+
 #endif
 int my_proc_rpc(ws_io_context *data, void *u, char **buf, int *size);
 int my_proc_accept(const struct sockaddr_in *, ws_data_callback *, void **u,
@@ -44,38 +49,38 @@ static void print_u16(const unsigned char *p) {
   printf("\n");
 }
 
-int main(void) {
 
+
+int main(void) {
 #ifdef _DEBUG
   _CrtMemState state;
   _CrtMemCheckpoint(&state);
 #endif
 #if 0
     {
-        
-        const char* cdata=
+        const char* cdata =
                 "{"
                 "\"command\":\"test\""
                 "}";
         json_t* root;
         json_error_t err;
         root = json_loads(cdata, 0, &err);
-        if(!root) {
+        if (!root) {
             printf("load failed\n");
         }
         printf("root %p\n", root);
-        
+
         {
             char *buf;
             int sz;
-            proc_rpc(NULL,&buf, &sz);
+            proc_rpc(NULL, &buf, &sz);
         }
         getch();
         return 0;
-
     }
 #endif
 
+printf("test websocket\n");
   {
     /* test sm4 */
     char user_key[17] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe,
@@ -138,7 +143,7 @@ int main(void) {
 
     server = iocp_server_start(5000);
 
-    wsserver_start(server, my_proc_accept);
+    wsserver_start(server, my_proc_accept, 0);
 
     iocp_server_join(server);
 
@@ -238,7 +243,6 @@ static __inline int gen_rpc_bad(char *buf, const char *method, int id) {
 }
 
 int my_proc_rpc(ws_io_context *ctx, void *u, char **buf, int *size) {
-
   json_t *value;
   json_t *args;
   const char *method;
@@ -313,3 +317,5 @@ void my_user_close(void *u) {
   printf("close user %d\n", user->id);
   free(user);
 }
+
+

@@ -108,6 +108,10 @@ SOURCE=.\sha1.c
 # End Source File
 # Begin Source File
 
+SOURCE=..\libs\sms\sm4.c
+# End Source File
+# Begin Source File
+
 SOURCE=.\wsserver.c
 # End Source File
 # End Group
