@@ -1,28 +1,26 @@
 /** Copyright 2018, 2021 He Hao<hehaoslj@sina.com>
-* \file heap.h
-* \brief 共享内存堆管理
-* \details 堆由多个共享内存块组成，第一个共享内存块也称主内存块；主共享内存块起始位置是一个数组链表，存储
-* 的初始大小固定
-* \author He Hao
-* \version 1.0
-* \date 2021-05-10
-* \since
-* \pre 无先决条件
-* \bug 未发现
-* \warning 无警告
-*/
+ * \file heap.h
+ * \brief 共享内存堆管理
+ * \details 堆由多个共享内存块组成
+ * \author He Hao
+ * \version 1.0
+ * \date 2021-05-10
+ * \since
+ * \pre 无先决条件
+ * \bug 未发现
+ * \warning 无警告
+ */
 
 #ifndef HEAP_H_
 #define HEAP_H_
 
 #include "lmice.h"
 
-
 /** 创建堆
- * @param size 堆的初始大小 字节数
+ * @param[in] size 堆的初始大小 字节数 size = 0 堆分配默认大小
  * @return 堆句柄
  */
-mihandle miheap_create(int size);
+mihandle miheap_create(miu32 size);
 
 /** 删除堆
  * @param heap 堆句柄
@@ -50,4 +48,10 @@ void miheap_free(mihandle heap, void* ptr);
  */
 void* miheap_realloc(mihandle heap, void* ptr, miu32 size);
 
-#endif  /**  HEAP_H_ */
+void miheap_report(mihandle heap);
+
+void miheap_info(mihandle heap, void* p);
+
+void* miheap_open(mihandle heap, miu32 heap_id, miu32 node_id);
+
+#endif /**  HEAP_H_ */

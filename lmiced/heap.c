@@ -1,29 +1,7 @@
 /** Copyright 2018, 2021 He Hao<hehaoslj@sina.com>
  * \file heap.c
  * \brief 堆内存分配
- * \details 堆内存按照块进行分配，使用。默认块大小64kB； 资源分配以64字节对齐
- * heap_summary | block_bitmap | res_index | data ...
- * block-0 第一个64kB，资源类型RES_HEAP, ID(0)
- * |0 --    26687|26688 -- 65535|
- * |HEAP summary |  HEAP64      |
- * |... 26688 ... |
- * |0 --64--  63|64--2048--2111|2112 --48*512-- 26687|
- * |heap_summary| block_bitmap | res_index           |
-   |... 38848 ... | 资源类型RES_HEAP64, ID(417+33+i)
- * |0 --64-- 63 |64 --2048-- 2111|2112 --48*328-- 17855|17856 --64*328 -- 38847|
- * |heap_summary| block_bitmap   | res_index           | 64B data block        |
- *
- * block-n 资源类型RES_HEAP64, ID(1024*n+33+i)
- * |0 --64--  63|64--2048--2111|2112 --48*566-- 29279|29280 --64*566-- 65503|
- * |heap_summary| block_bitmap |    res_index        |      64B data block  |
- *
- * block-n:m 资源类型RES_DATA, ID(1024*n)
- * |0 -- 65536*m-- |
- * | data block    |
- *
- * block-n 资源类型RES_INDEX，ID(1024*n)
- * |0 --48*1356-- 65535|
- * | res_index         |
+ * \details 堆内存按照块进行分配； 资源分配字节对齐
  * \author He Hao
  * \version 1.0
  * \date 2021-05-11
@@ -33,262 +11,36 @@
  * \warning 无警告
  */
 #include "heap.h"
+#include "lmice_private.h"
 
 #include <windows.h>
 
 /* 自旋锁 */
+#include "../opcda2/util_atomic.h"
 #include "../opcda2/util_ticketlock.h"
+#include "../opcda2/util_trace.h"
 
-/* heap 名称模版 */
-#define HEAP_NAME "Global\\smLMiced"
-
-#define HEAP_COUNT 8
-#define HEAP_BLOCK_SIZE 65536
-#define HEAP_MAX_SIZE (1024 * 1024 * 1024)
-#define HEAP_DEFAULT_SIZE (10 * 1024 * 1024)
+#define FNODE_NONE 0
 
 typedef struct heap_desc {
-    miu32 lock;
+    miu32             lock;
     miu32             size[HEAP_COUNT];
     miu8*             ptr[HEAP_COUNT];
     HANDLE            hfile[HEAP_COUNT];
     struct heap_desc* next;
 } heap_desc;
 
-
-#if 0
-typedef int heap_pos;
-
-typedef struct {
-    int      size;             /**< 字节数 */
-    int      lock;             /**< 原子锁 */
-    int      heap_no;          /**< 堆 编号 */
-    int      block_size;       /**< 每块字节数 */
-    int      block_count;      /**< 总共内存块数 */
-    int      free_block_count; /**< 空闲块数 */
-    int      res_id_base;      /**< 资源id基值 */
-    int      res_count;        /**< 资源数量 */
-    int      free_res_count;
-    heap_pos block_bitmap; /**< 指向 块位图 */
-    heap_pos res_table;    /**< 指向 资源表 */
-    heap_pos res_data;     /**< 指向 数据 */
-} heap_summary;
-
-typedef enum {
-    RES_DATA,   /**< 数据 资源 */
-    RES_HEAP,   /**< 堆 资源 */
-    RES_HEAP64, /**< 小内存堆 */
-    RES_INDEX,  /**< 索引表 资源 */
-    RES_BITMAP  /**< 块使用情况位图 */
-} HEAP_RES_TYPE;
-
-typedef struct {
-    int     size;      /**< 字节数 */
-    int     lock;      /**< 原子锁 */
-    int     data_size; /**< 数据字节数 */
-    miint16 mode;      /**< 访问权限 */
-    miint16 uid;       /**< 所有者id */
-    mitick  ctime;     /**< 创建时间 */
-    mitick  mtime;     /**< 修改时间 */
-    mitick  atime;     /**< 访问时间 */
-} heap_res_summary;
-
-typedef struct {
-    int      res_id;    /**<  资源id */
-    miuchar8 res_type;  /**< 资源类型 */
-    miuchar8 mode;      /**< 访问权限 */
-    miint16  uid;       /**< 所有者id */
-    int      size;      /**< 字节数 */
-    int      lock;      /**< 原子锁 */
-    int      data_size; /**< 数据字节数 */
-    int      data_type; /**< 数据类型 */
-
-    mitick ctick; /**< 创建节拍 */
-    mitick mtick; /**< 修改节拍 */
-    mitick atick; /**< 访问节拍 */
-} heap_res_index;
-
-/** 8字节对齐的 使用情况位图 大小
- * @param block_count 总共块数量
- */
-#define bitmap_size(block_count) ((((int) block_count) + 63) / 64) * 8
-
-void bitmap_set(void* bitmap, int begin, int size) {
-    int ipos    = begin / 32;
-    int iremain = begin % 32;
-    for (; size > 0;) {
-        int           step = 32 - iremain;
-        unsigned int  mask = ((1 << step) - 1) << iremain;
-        unsigned int* p    = (unsigned int*) bitmap + ipos;
-        if (step < size) {
-            iremain = 0;
-            *p |= mask;
-            size -= step;
-        } else {
-            step = size;
-            mask = ((1 << step) - 1) << iremain;
-            *p |= mask;
-            break;
-        }
-        ipos++;
-    }
-}
-
-void bitmap_unset(void* bitmap, int begin, int size) {
-    int ipos    = begin / 32;
-    int iremain = begin % 32;
-    for (; size > 0;) {
-        int           step = 32 - iremain;
-        unsigned int  mask = 0xffffffff >> step;
-        unsigned int* p    = (unsigned int*) bitmap + ipos;
-
-        if (step < size) {
-            iremain = 0;
-            *p &= mask;
-            size -= step;
-        } else {
-            step = size;
-            mask = 0xffffffff << step;
-            *p &= mask;
-        }
-        ipos++;
-    }
-}
-
-int bitmap_find(void* bitmap, int max_count, int size, int* begin) {
-    unsigned int* p     = (unsigned int*) bitmap;
-    int           count = 0;
-    int           ipos;
-    int           i;
-    int           j;
-
-    *begin = 0;
-
-    for (i = 0; i < max_count; i += 32, p++) {
-        for (j = 0; j < 32; ++j) {
-            int value = *p & (1 << j);
-            if (value == 1) {
-                /* 已经使用，重新计数 */
-                count = 0;
-            } else {
-                if (count == 0) {
-                    ipos = i * 32 + j;
-                }
-                if (i >= max_count) {
-                    return 1;
-                }
-                count++;
-                if (count == size) {
-                    *begin = ipos;
-                    return 0;
-                }
-            }
-        }
-    }
-
-    return 1;
-}
-
-mihandle miheap_create(int size) {
-    heap_desc* desc;
-    mihandle   handle;
-    HANDLE     hfile;
-    void*      ptr;
-    int        block_count;
-
-    if (size <= 0) {
-        block_count = 1024;
-    } else if (size > 1024 * 1024 * 1024) {
-        block_count = 1024 * 1024;
-    } else {
-        block_count = ((size + HEAP_BLOCK_SIZE - 1) / HEAP_BLOCK_SIZE) * HEAP_BLOCK_SIZE;
-    }
-
-    size = HEAP_BLOCK_SIZE * block_count;
-
-    hfile = CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE | SEC_COMMIT | SEC_LARGE_PAGES, 0, size,
-                               HEAP_NAME);
-    if (hfile == NULL) {
-        handle.i64 = 0;
-        return handle;
-    } else if (GetLastError() == ERROR_ALREADY_EXISTS) {
-        ptr = MapViewOfFile(hfile, FILE_MAP_ALL_ACCESS, 0, 0, size);
-    } else {
-        heap_summary* summary;
-
-        ptr = MapViewOfFile(hfile, FILE_MAP_ALL_ACCESS, 0, 0, size);
-
-        summary       = (heap_summary*) (ptr);
-        summary->size = size;
-        /* summary->lock; */
-        summary->block_size       = HEAP_BLOCK_SIZE;
-        summary->block_count      = block_count;
-        summary->free_block_count = summary->block_size - 1;
-        /* summary->res_count; */
-        summary->block_bitmap = sizeof(heap_summary);
-        summary->res_table    = sizeof(heap_summary) + bitmap_size(summary->block_count);
-    }
-
-    desc           = (heap_desc*) HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(heap_desc));
-    desc->ptr[0]   = ptr;
-    desc->hfile[0] = hfile;
-    desc->size     = size;
-
-    handle.ptr = (void*) desc;
-
-    return handle;
-}
-
-void miheap_release(mihandle heap) {
-    heap_desc* desc;
-    heap_desc* next;
-    next = (heap_desc*) heap.ptr;
-    while (next != NULL) {
-        int i;
-        desc = next;
-        for (i = 0; i < HEAP_COUNT; ++i) {
-            if (desc->ptr) UnmapViewOfFile(desc->ptr);
-            if (desc->hfile) CloseHandle(desc->hfile);
-        }
-        next = desc->next;
-        HeapFree(GetProcessHeap(), 0, desc);
-    }
-}
-
-void* miheap_malloc(mihandle heap, int size) {
-    heap_desc* desc = (heap_desc*) (heap.ptr);
-    void*      ptr  = NULL;
-
-    if (!desc) return NULL;
-
-    /* 默认分配大小 */
-    if (size <= 0) size = HEAP_BLOCK_SIZE;
-
-    if (size > 4096) {
-        /* 从堆上分配 64kB的整数倍 */
-        int block_count = (size + HEAP_BLOCK_SIZE - 1) / HEAP_BLOCK_SIZE;
-    } else {
-        /* 从64字节资源堆分配 */
-        int block_count = (size + 64 - 1) / 64;
-    }
-    return ptr;
-}
-#endif
-
-#define EMPTY_FREE_NODE NULL
-#define HEAP_DATA_ALIGN 16
-
 /** free_node
  * \brief bidirected link free node list
  *
  * |0 -- heap size bytes -- size|
- * | free 0 | node 1 | node 2 | free 1 | node 3 | free 3 |
+ * | heap summary | free 0 | node 0 | node 1 | free 1 | node 2 | free 3 |
  */
 typedef struct free_node {
     miu32 prev_pos; /* 上一条可分配空间 */
     miu32 next_pos; /* 下一条可分配空间 */
     miu32 heap_pos; /* 堆中相对位置（字节数） */
-    miu32 size; /* 可分配空间（字节数） */
+    miu32 size;     /* 可分配空间（字节数） */
 } free_node;
 
 /** heap summary */
@@ -299,31 +51,22 @@ typedef struct heap_summary {
     miu32 fnode; /* free_node 根节点 */
 } heap_summary;
 
+static __inline void  node_free_raw(heap_summary* hs, miu32 heap_pos, miu32 aligned_size);
+static __inline miu8* node_malloc_raw(heap_summary* hs, miu32 aligned_size);
+static __inline miu8* node_realloc_raw(heap_summary* hs, miu32 heap_pos, miu32 aligned_size, node_head* head,
+                                       miu32 n_size);
 
-#define FNODE_NONE 0
+static __inline void  miheap_report_raw(heap_desc* desc);
+static __inline void* miheap_malloc_raw(heap_desc* desc, miu32 data_size);
+static __inline void  miheap_free_raw(heap_desc* desc, void* ptr);
+static __inline void* miheap_realloc_raw(heap_desc* desc, void* ptr, miu32 data_size);
 
-typedef struct node_head {
-    miu32 heap_idx; /* 堆 id */
-    miu32 id;      /* 资源id */
-    miu32 size;    /* 对齐数据长度 */
-    miu32 lock;
-#if 0
-    miu8   data_type; /**< 资源类型 */
-    miu8   mode;      /**< 访问权限 */
-    miu16  uid;       /**< 所有者id */
-#endif
-    mitick ctick;
-    mitick mtick;
-    mitick atick;
-} node_head;
-
-static __inline int create_mapview(miu32 id, int size, HANDLE* pfile, miu8** pptr, miu32* psize) {
+static __inline int create_mapview(miu32 id, miu32 size, HANDLE* pfile, miu8** pptr, miu32* psize) {
     HANDLE      hfile        = NULL;
     miu8*       ptr          = NULL;
     char        name[32]     = {0};
     const miu32 id_pos       = sizeof(HEAP_NAME) - 1;
     int         ret          = 0;
-    miu32       block_count  = 0;
     miu32       aligned_size = 0;
 
     /* 初始化 */
@@ -331,36 +74,45 @@ static __inline int create_mapview(miu32 id, int size, HANDLE* pfile, miu8** ppt
     *pptr  = NULL;
     *psize = 0;
 
-    if (size <= 0) {
-        block_count = 1024;
-    } else if (size > 1024 * 1024 * 1024) {
-        block_count = 16 * 1024 * 1024;
+    if (size <= HEAP_DEFAULT_SIZE) {
+        aligned_size = HEAP_DEFAULT_SIZE;
+    } else if (size >= HEAP_MAX_SIZE) {
+        aligned_size = HEAP_MAX_SIZE;
     } else {
-        block_count = ((size + HEAP_BLOCK_SIZE - 1) / HEAP_BLOCK_SIZE) * HEAP_BLOCK_SIZE;
+        aligned_size = ((size + HEAP_ALIGN - 1) / HEAP_ALIGN) * HEAP_ALIGN;
     }
 
-    aligned_size = HEAP_BLOCK_SIZE * block_count;
+    trace_debug("create_mapview[%u] size %d aligned_size %u\n", id, size, aligned_size);
 
     memset(name, 0, sizeof(name));
     memcpy(name, HEAP_NAME, id_pos);
-    name[id_pos+0] = '0' + (id/10000) % 10;
-    name[id_pos+1] = '0' + (id/1000) % 10;
-    name[id_pos+2] = '0' + (id/100) % 10;
-    name[id_pos+3] = '0' + id/10;
-    name[id_pos+4] = '0' + id % 10;
+    name[id_pos + 0] = '0' + (id / 10000) % 10;
+    name[id_pos + 1] = '0' + (id / 1000) % 10;
+    name[id_pos + 2] = '0' + (id / 100) % 10;
+    name[id_pos + 3] = '0' + id / 10;
+    name[id_pos + 4] = '0' + id % 10;
 
-
-    hfile = CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE | SEC_COMMIT | SEC_LARGE_PAGES, 0, aligned_size,
-                               name);
+    hfile = CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE | SEC_COMMIT | SEC_LARGE_PAGES, 0,
+                               aligned_size, name);
     if (hfile == NULL) {
         /* 创建失败 */
+        DWORD err = GetLastError();
+        trace_debug("CreateFileMappingA(SEC_LARGE_PAGES:%u) failed %d\n", aligned_size, err);
+        /* 尝试非Large_pages */
+        hfile = CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE | SEC_COMMIT, 0, aligned_size, name);
+    }
+
+    if (hfile == NULL) {
+        DWORD err = GetLastError();
+        trace_debug("CreateFileMappingA(%u) failed %d\n", aligned_size, err);
         ret = 1;
     } else if (GetLastError() == ERROR_ALREADY_EXISTS) {
         /*已经存在，读取heap summary以获取长度*/
+        trace_debug("CreateFileMappingA already exist\n");
         ptr = MapViewOfFile(hfile, FILE_MAP_READ, 0, 0, sizeof(heap_summary));
         if (ptr != NULL) {
             heap_summary* heap;
-            heap = (heap_summary*)ptr;
+            heap         = (heap_summary*) ptr;
             aligned_size = heap->size;
 
             UnmapViewOfFile(ptr);
@@ -372,22 +124,23 @@ static __inline int create_mapview(miu32 id, int size, HANDLE* pfile, miu8** ppt
         ptr = MapViewOfFile(hfile, FILE_MAP_ALL_ACCESS, 0, 0, aligned_size);
         if (ptr != NULL) {
             heap_summary* heap;
-            free_node* fnode;
+            free_node*    fnode;
 
             /* 更新heap 状态 */
-            heap       = (heap_summary*) ptr;
-            heap->id = 0;
-            heap->size = size;
+            heap        = (heap_summary*) ptr;
+            heap->id    = id;
+            heap->size  = aligned_size;
             heap->fnode = sizeof(heap_summary);
 
             /* free node 根节点 */
-            fnode = (free_node*)(ptr + heap->fnode);
+            fnode           = (free_node*) (ptr + heap->fnode);
             fnode->prev_pos = 0;
             fnode->next_pos = 0;
-            fnode->heap_pos  = heap->fnode;
-            fnode->size = aligned_size - sizeof(heap_summary);
+            fnode->heap_pos = heap->fnode;
+            fnode->size     = aligned_size - sizeof(heap_summary);
         }
     }
+    if (ret == 0) trace_debug("create_mapview[%p] at name %s\n", hfile, name);
 
     if (ptr == NULL && hfile != NULL) {
         ret = 1;
@@ -398,28 +151,20 @@ static __inline int create_mapview(miu32 id, int size, HANDLE* pfile, miu8** ppt
     *pfile = hfile;
     *pptr  = ptr;
     *psize = aligned_size;
+    trace_debug("open heap(%d) free size %u\n", ret, aligned_size);
 
     return ret;
 }
 
-mihandle miheap_create(int size) {
-    mihandle handle = {.ptr = NULL};
-    miu32 block_count = 0;
-    HANDLE hfile = NULL;
-    miu8* ptr = NULL;
-    heap_desc *desc;
-    int ret;
-    miu32 nsize;
+mihandle miheap_create(miu32 size) {
+    mihandle   handle;
+    HANDLE     hfile = NULL;
+    miu8*      ptr   = NULL;
+    heap_desc* desc;
+    int        ret;
+    miu32      nsize;
 
-    if (size <= 0) {
-        block_count = 1024;
-    } else if (size > 1024 * 1024 * 1024) {
-        block_count = 16 * 1024 * 1024;
-    } else {
-        block_count = ((size + HEAP_BLOCK_SIZE - 1) / HEAP_BLOCK_SIZE) * HEAP_BLOCK_SIZE;
-    }
-
-    size = HEAP_BLOCK_SIZE * block_count;
+    handle.ptr = NULL;
 
     ret = create_mapview(0, size, &hfile, &ptr, &nsize);
     if (ret == 0) {
@@ -443,203 +188,250 @@ void miheap_release(mihandle heap) {
         int i;
         desc = next;
         for (i = 0; i < HEAP_COUNT; ++i) {
-            if (desc->ptr) UnmapViewOfFile(desc->ptr);
-            if (desc->hfile) CloseHandle(desc->hfile);
+            if (desc->ptr[i]) UnmapViewOfFile(desc->ptr[i]);
+            if (desc->hfile[i]) CloseHandle(desc->hfile[i]);
         }
         next = desc->next;
         HeapFree(GetProcessHeap(), 0, desc);
     }
 }
 
-void* miheap_malloc(mihandle heap, miu32 data_size) {
-    heap_desc*    desc;
+static __inline miu8* miheap_malloc_at_fnode(miu8* heap_begin, free_node* fnode, miu32 aligned_size) {
+    heap_summary* hs          = (heap_summary*) (heap_begin);
+    miu32         remain_size = fnode->size - aligned_size;
+    node_head*    node        = (node_head*) fnode;
+    miu32         heap_pos    = fnode->heap_pos;
+    /* 更新链表 */
+    /* 剩余空间不足 */
+    if (remain_size < sizeof(node_head)) {
+        /* 修订分配 size */
+        aligned_size = fnode->size;
+
+        /* 更新链表 */
+        if (fnode->next_pos != 0 && fnode->prev_pos != 0) {
+            /* 同时存在 prev, next 节点的时候 */
+            free_node* prev;
+            free_node* next;
+
+            prev = (free_node*) (heap_begin + fnode->prev_pos);
+            next = (free_node*) (heap_begin + fnode->next_pos);
+
+            prev->next_pos = next->heap_pos;
+            next->prev_pos = prev->prev_pos;
+        } else if (fnode->prev_pos != 0 && fnode->next_pos == 0) {
+            /* fnode 为叶节点 存在 prev 节点的时候 */
+            free_node* prev;
+
+            prev           = (free_node*) (heap_begin + fnode->prev_pos);
+            prev->next_pos = 0;
+        }
+
+        if (hs->fnode == fnode->heap_pos) {
+            /* fnode为根节点, fnode->next 为新的根节点 */
+            hs->fnode = fnode->next_pos;
+            if (fnode->next_pos != 0) {
+                free_node* next;
+
+                next = (free_node*) (heap_begin + fnode->next_pos);
+
+                next->prev_pos = 0;
+            }
+        }
+
+    } else {
+        /* 插入新的freenode */
+        free_node* new_node;
+
+        new_node = (free_node*) (heap_begin + fnode->heap_pos + aligned_size);
+
+        new_node->heap_pos = fnode->heap_pos + aligned_size;
+        new_node->size     = remain_size;
+        /* 更新freenode链表 */
+        if (fnode->prev_pos != 0 && fnode->next_pos != 0) {
+            /* fnode 为中间节点，同时存在 prev, next 节点 */
+            free_node* prev;
+            free_node* next;
+
+            prev = (free_node*) (heap_begin + fnode->prev_pos);
+            next = (free_node*) (heap_begin + fnode->next_pos);
+
+            prev->next_pos     = new_node->heap_pos;
+            next->prev_pos     = new_node->prev_pos;
+            new_node->prev_pos = prev->heap_pos;
+            new_node->next_pos = next->heap_pos;
+        } else if (fnode->prev_pos != 0 && fnode->next_pos == 0) {
+            /* fnode 为叶节点，存在 prev 节点 */
+            free_node* prev;
+
+            prev = (free_node*) (heap_begin + fnode->prev_pos);
+
+            prev->next_pos     = new_node->heap_pos;
+            new_node->prev_pos = prev->heap_pos;
+            new_node->next_pos = 0;
+        }
+
+        if (hs->fnode == fnode->heap_pos) {
+            /* fnode为根节点 更新 新的根节点位置 */
+            new_node->prev_pos = 0;
+            hs->fnode          = new_node->heap_pos;
+
+            new_node->prev_pos = 0;
+            new_node->next_pos = fnode->next_pos;
+            if (fnode->next_pos != 0) {
+                free_node* next;
+
+                next = (free_node*) (heap_begin + fnode->next_pos);
+
+                next->prev_pos = new_node->heap_pos;
+            }
+        }
+    }
+    /* 更新节点信息 */
+    node->heap_id = hs->id;
+    node->id      = heap_pos / HEAP_DATA_ALIGN;
+    node->size    = aligned_size;
+    node->lock    = 0;
+    #ifdef EAL_INT64
+    node->ctick.i64.high = 0;
+    node->ctick.i64.low = 0;
+    node->mtick.i64.high = 0;
+    node->mtick.i64.low = 0;
+    node->atick.i64.high = 0;
+    node->atick.i64.low = 0;
+    #else
+    node->ctick   = 0;
+    node->mtick   = 0;
+    node->atick   = 0;
+    #endif
+    return (((miu8*) node) + sizeof(node_head));
+}
+
+miu8* node_malloc_raw(heap_summary* hs, miu32 aligned_size) {
+    miu8*      ptr        = NULL;
+    miu8*      heap_begin = (miu8*) hs;
+    free_node* fnode      = (free_node*) (heap_begin + hs->fnode);
+    /* 当前堆无空闲空间 查询下一个 heap */
+    if (hs->fnode == FNODE_NONE) {
+        return ptr;
+    }
+
+    /* 从根节点遍历heap上空闲空间链表 */
+    for (;;) {
+        if (fnode->size >= aligned_size) {
+            /* 更新节点状态 */
+            trace_debug("malloc %u, size:%u, prev:%u next:%u\n", fnode->heap_pos, aligned_size, fnode->prev_pos,
+                        fnode->next_pos);
+            ptr = miheap_malloc_at_fnode(heap_begin, fnode, aligned_size);
+            /* 分配成功，退出循环 */
+            break;
+        }
+
+        /* 已经是叶节点，退出 */
+        if (fnode->next_pos == 0) break;
+
+        fnode = (free_node*) (heap_begin + fnode->next_pos);
+    }
+    return ptr;
+}
+
+void* miheap_malloc_raw(heap_desc* desc, miu32 data_size) {
     heap_summary* hs;
-    free_node*    fnode;
-    miu8*         heap_begin;
     miu32         aligned_size; /* 真实分配内存字节数 */
-    int           is_ok    = 0; /* 是否分配成功 */
     int           heap_idx = 0; /* 堆 索引 */
-    miu32         heap_pos = 0; /* 堆 偏移量 */
-    miu8*         node_ptr = NULL;
+    miu8*         ptr      = NULL;
 
     aligned_size = ((data_size + sizeof(node_head) + HEAP_DATA_ALIGN - 1) / HEAP_DATA_ALIGN) * HEAP_DATA_ALIGN;
 
     /* find free space */
-    desc = (heap_desc*)heap.ptr;
-
     do {
         int i;
         for (i = 0; i < HEAP_COUNT; ++i, ++heap_idx) {
-            /* heap 没打开 */
+            /* heap 检测打开 */
             if (desc->ptr[i] == NULL) {
                 HANDLE hfile;
-                miu8* ptr;
-                miu32 size;
-                int ret;
+                miu8*  hptr;
+                miu32  size;
+                int    ret;
 
                 /* 使用默认大小打开/新建内存 */
-                ret = create_mapview(heap_idx, 0, &hfile, &ptr, &size);
+                ret = create_mapview(heap_idx, aligned_size, &hfile, &hptr, &size);
                 if (ret == 0) {
                     desc->hfile[i] = hfile;
-                    desc->ptr[i] = ptr;
-                    desc->size[i] = size;
-                } else {
-                    /* 无法分配内存 */
-                    return NULL;
+                    desc->ptr[i]   = hptr;
+                    desc->size[i]  = size;
                 }
             }
+            hs = (heap_summary*) desc->ptr[i];
 
-            hs         = (heap_summary*) desc->ptr[i];
-            heap_begin = (miu8*) hs;
-            fnode      = (free_node*) (heap_begin + hs->fnode);
+            /* 无法分配内存 */
+            if (hs == NULL) return NULL;
 
-            /* 当前堆无空闲空间 查询下一个 heap */
-            if (hs->fnode == FNODE_NONE) continue;
+            EAL_ticket_lock(&hs->lock);
+            ptr = node_malloc_raw(hs, aligned_size);
+            EAL_ticket_unlock(&hs->lock);
 
-            /* 从根节点遍历heap上空闲空间链表 */
-            for (;;) {
-                if (fnode->size >= aligned_size) {
-                    miu32 remain_size = fnode->size - aligned_size;
-
-                    /* 更新节点状态 */
-                    is_ok = 1;
-                    heap_pos = fnode->heap_pos;
-                    node_ptr = heap_begin + heap_pos;
-
-
-                    /* 更新链表 */
-                    if (remain_size < sizeof(node_head)) {
-                        /* 剩余部分不足 创建新freenode */
-                        fnode->size = 0;
-                        /* 修订分配 size */
-                        aligned_size = fnode->size;
-
-                        /* 更新链表 */
-                        if (fnode->next_pos != 0 && fnode->prev_pos != 0) {
-                            /* 同时存在 prev, next 节点的时候 */
-                            free_node* prev;
-                            free_node* next;
-
-                            prev           = (free_node*) (heap_begin + fnode->prev_pos);
-                            next           = (free_node*) (heap_begin + fnode->next_pos);
-                            prev->next_pos = next->heap_pos;
-                            next->prev_pos = prev->prev_pos;
-                        } else if (fnode->prev_pos != 0 && fnode->next_pos == 0) {
-                            /* fnode 为叶节点 存在 prev 节点的时候 */
-                            free_node* prev;
-
-                            prev           = (free_node*) (heap_begin + fnode->prev_pos);
-                            prev->next_pos = 0;
-                        } else if (fnode->prev_pos == 0 && fnode->next_pos == 0) {
-                            /* fnode为根节点 */
-                            hs->fnode = FNODE_NONE;
-                        }
-
-
-                    } else {
-                        /* 插入新的freenode */
-                        free_node* new_node;
-
-                        new_node           = (free_node*) (heap_begin + fnode->heap_pos + aligned_size);
-                        new_node->heap_pos = fnode->heap_pos + aligned_size;
-                        new_node->size     = remain_size;
-                        /* 更新freenode链表 */
-                        if (fnode->prev_pos != 0 && fnode->next_pos != 0) {
-                            /* fnode 为中间节点，同时存在 prev, next 节点 */
-                            free_node* prev;
-                            free_node* next;
-
-                            prev               = (free_node*) (heap_begin + fnode->prev_pos);
-                            next               = (free_node*) (heap_begin + fnode->next_pos);
-                            prev->next_pos     = new_node->heap_pos;
-                            next->prev_pos     = new_node->prev_pos;
-                            new_node->prev_pos = prev->heap_pos;
-                            new_node->next_pos = next->heap_pos;
-                        } else if (fnode->prev_pos != 0 && fnode->next_pos == 0) {
-                            /* fnode 为叶节点，存在 prev 节点 */
-                            free_node* prev;
-
-                            prev               = (free_node*) (heap_begin + fnode->prev_pos);
-                            prev->next_pos     = new_node->heap_pos;
-                            new_node->prev_pos = prev->heap_pos;
-                            new_node->next_pos = 0;
-
-                        } else if (fnode->prev_pos == 0 && fnode->next_pos == 0) {
-                            /* fnode为根节点 更新 新的根节点位置 */
-                            hs->fnode = new_node->heap_pos;
-
-                            new_node->prev_pos = 0;
-                            new_node->next_pos = 0;
-                        }
-                    }
-                    /* 分配成功，退出循环 */
-                    break;
-                }
-
-                /* 已经是叶节点，退出 */
-                if (fnode->next_pos == 0) {
-                    break;
-                }
-                fnode = (free_node*) (heap_begin + fnode->next_pos);
-            }
+            if (ptr) break;
         } /** end-of for i--HEAP_COUNT */
 
         /* 已经插入成功，退出循环 */
-        if (is_ok) break;
+        if (ptr) break;
 
         /* 遍历heap链表 */
         if (desc->next == NULL) {
-            heap_desc *next_desc;
-            next_desc           = (heap_desc*) HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(heap_desc));
+            heap_desc* next_desc;
+            next_desc  = (heap_desc*) HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(heap_desc));
             desc->next = next_desc;
         }
         desc = desc->next;
     } while (desc != NULL);
 
-    if (is_ok) {
-        /* 更新节点数据 */
-        node_head* node;
-        node           = (node_head*) node_ptr;
-        node->heap_idx = heap_idx;
-        node->id       = heap_pos / HEAP_DATA_ALIGN;
-        node->size     = aligned_size;
-        node->lock     = 0;
-        node->ctick    = 0;
-        node->mtick    = 0;
-        node->atick    = 0;
-        /* 指向数据区域 */
-        return node_ptr + sizeof(node_head);
-    } else {
-        return NULL;
-    }
+    return ptr;
 }
 
 /**
  * \brief 查找 数据区 对应的 heap指针与位置
  */
-static __inline int find_heap(mihandle heap, void* ptr, miu8** heap_begin, miu32* heap_pos, miu32* aligned_size) {
+static __inline int find_heap(heap_desc* desc, miu8* ptr, miu8** heap_begin, miu32* heap_pos, miu32* aligned_size) {
     node_head*    node;
     heap_summary* hs;
-    miu32         heap_idx;
-    heap_desc*    desc = (heap_desc*) heap.ptr;
+    miu32         heap_id;
+    int           ret = 0;
 
-    node         = (node_head*) ((miu8*) ptr - sizeof(node_head));
-    *heap_pos    = node->id * HEAP_DATA_ALIGN;
+    node          = (node_head*) (ptr - sizeof(node_head));
+    *heap_pos     = node->id * HEAP_DATA_ALIGN;
     *aligned_size = node->size;
+    heap_id       = node->heap_id;
 
-    for (heap_idx = node->heap_idx; heap_idx >= HEAP_COUNT; heap_idx -= HEAP_COUNT) {
-        if (desc->next == NULL) return 1;
+    for (; heap_id >= HEAP_COUNT; heap_id -= HEAP_COUNT) {
+        if (desc->next == NULL) {
+            ret = 1;
+            break;
+        }
         desc = desc->next;
     }
-    *heap_begin = desc->ptr[heap_idx];
-    hs          = (heap_summary*) *heap_begin;
-    if (hs == NULL) return 1;
-    if (hs->size < (*heap_pos)) return 1;
-    return 0;
+    if (ret == 0) {
+        *heap_begin = desc->ptr[heap_id];
+        hs          = (heap_summary*) desc->ptr[heap_id];
+        if (hs == NULL) {
+            ret = 1;
+        } else if (hs->size < (*heap_pos)) {
+            ret = 1;
+        }
+    }
+
+    return ret;
 }
 
-static __inline void find_prev_next(miu8* heap_begin, miu32 heap_pos, miu32 aligned_size,
-                                    free_node** pprev, free_node** pnext) {
+/** find_prev_next
+ * @brief 查找相邻的空节点
+ * @param heap_begin
+ * @param heap_pos
+ * @param aligned_size
+ * @param pprev
+ * @param pnext
+ */
+static __inline void find_prev_next(miu8* heap_begin, miu32 heap_pos, miu32 aligned_size, free_node** pprev,
+                                    free_node** pnext) {
     free_node*    fnode = NULL;
     free_node*    prev  = NULL;
     free_node*    next  = NULL;
@@ -649,13 +441,14 @@ static __inline void find_prev_next(miu8* heap_begin, miu32 heap_pos, miu32 alig
     if (hs->fnode != FNODE_NONE) {
         for (;;) {
             if (fnode->heap_pos + fnode->size <= heap_pos) {
-                /* 前方fnode是空节点, 合并空间 */
+                /* 前方fnode */
                 prev = fnode;
             } else if (next == NULL && fnode->heap_pos >= heap_pos + aligned_size) {
-                /* 后方fnode是空节点，合并空间 */
+                /* 后方fnode， 退出 */
                 next = fnode;
                 break;
             }
+            /* fnode为叶节点 退出 */
             if (fnode->next_pos == 0) break;
 
             fnode = (free_node*) (heap_begin + fnode->next_pos);
@@ -665,137 +458,434 @@ static __inline void find_prev_next(miu8* heap_begin, miu32 heap_pos, miu32 alig
     *pnext = next;
 }
 
-void miheap_free(mihandle heap, void* ptr) {
-    miu32 heap_pos;
-    miu8* heap_begin;
-    miu32 aligned_size;
-    int ret;
-
-    /* 获取heap */
-    ret = find_heap(heap, ptr, &heap_begin, &heap_pos, &aligned_size);
-    if (ret != 0) return;
-
-
-    {
+void node_free_raw(heap_summary* hs, miu32 heap_pos, miu32 aligned_size) {
+    miu8* heap_begin = (miu8*) hs;
+    if (hs->fnode == FNODE_NONE) {
         free_node* fnode;
-        heap_summary* hs;
-        hs = (heap_summary*)heap_begin;
-        fnode = (free_node*)(heap_begin + hs->fnode);
+        /* 无根节点  新建根节点 */
+        fnode           = (free_node*) (heap_begin + heap_pos);
+        fnode->heap_pos = heap_pos;
+        fnode->next_pos = 0;
+        fnode->prev_pos = 0;
+        fnode->size     = aligned_size;
+        /* 更新堆状态信息 */
+        hs->fnode = heap_pos;
+    } else {
+        /* 链表查找node前后方是否是空节点 */
+        int        is_ok = 0;
+        free_node* prev  = NULL;
+        free_node* next  = NULL;
+        find_prev_next(heap_begin, heap_pos, aligned_size, &prev, &next);
 
-        if (hs->fnode == FNODE_NONE) {
-            /* 无根节点  新建空闲节点*/
-            fnode = (free_node*)(heap_begin + heap_pos);
-            fnode->heap_pos = heap_pos;
-            fnode->next_pos = 0;
-            fnode->prev_pos = 0;
-            fnode->size = aligned_size;
-            /* 更新堆状态信息 */
-            hs->fnode = heap_pos;
-        } else {
-            /* 链表查找node前后方是否是空节点 */
-            int is_ok = 0;
-            free_node *prev = NULL;
-            free_node *next = NULL;
-            find_prev_next(heap_begin, heap_pos, aligned_size, &prev, &next);
+        printf("free_prev_next %p ", heap_begin);
+        if (prev)
+            printf(" prev %08u %08u [%u,%u]",                   /*prev data*/
+                   prev->heap_pos, prev->heap_pos + prev->size, /*prev pos end*/
+                   prev->prev_pos, prev->next_pos               /*prev prev-next*/
+            );
+        printf("--node %08u %08u--", heap_pos, heap_pos + aligned_size);
+        if (next)
+            printf(" next %08u %08u [%u, %u]",                  /*next data*/
+                   next->heap_pos, next->heap_pos + next->size, /*next pos end*/
+                   next->prev_pos, next->next_pos               /* next prev-next */
+            );
+        printf("\n");
 
-            /* prev-node-next 相连， 则合并 */
-            if (prev && next && is_ok == 0) {
-                if (prev->heap_pos + prev->size == heap_pos && next->heap_pos == heap_pos + aligned_size) {
-                    prev->size += aligned_size + next->size;
-                    prev->next_pos = next->next_pos;
-                    is_ok = 1;
+        /* prev-node-next 相连， 则合并==>prev */
+        if (prev && next && is_ok == 0) {
+            if (prev->heap_pos + prev->size == heap_pos && next->heap_pos == heap_pos + aligned_size) {
+                prev->size     = prev->size + aligned_size + next->size;
+                prev->next_pos = next->next_pos;
+
+                is_ok = 1;
+
+                if (next->next_pos != 0) {
+                    free_node* nnext;
+                    nnext = (free_node*) (heap_begin + next->next_pos);
+
+                    nnext->prev_pos = prev->heap_pos;
                 }
             }
+        }
 
-            /* prev-node 相连， 则合并 */
-            if (prev && is_ok == 0) {
-                if (prev->heap_pos + prev->size == heap_pos) {
-                    prev->size += aligned_size;
-                    is_ok = 1;
-                }
+        /* prev-node 相连， 则合并 ==>prev */
+        if (prev && is_ok == 0) {
+            if (prev->heap_pos + prev->size == heap_pos) {
+                prev->size = prev->size + aligned_size;
+
+                is_ok = 1;
             }
+        }
 
-            /* node-next 相连， 则合并 */
-            if (next && is_ok == 0) {
-                if (next->heap_pos == heap_pos + aligned_size) {
-                    free_node* nnode;
-                    nnode           = (free_node*) (heap_begin + heap_pos);
-                    nnode->size     = next->size + aligned_size;
-                    nnode->prev_pos = next->prev_pos;
-                    nnode->next_pos = next->next_pos;
-                    nnode->heap_pos = heap_pos;
-                    is_ok = 1;
-
-                    if (next->prev_pos != 0) {
-                        free_node* nprev;
-                        nprev           = (free_node*) (heap_begin + next->prev_pos);
-                        nprev->next_pos = heap_pos;
-                    } else {
-                        /*next 为根节点 更新summary*/
-                        hs->fnode = heap_pos;
-                    }
-
-                    if (next->next_pos != 0) {
-                        free_node* nnext;
-                        nnext           = (free_node*) (heap_begin + next->next_pos);
-                        nnext->prev_pos = heap_pos;
-                    }
-                }
-            }
-
-
-            /* 均不相连 插入新的空闲空间节点 */
-            if (is_ok == 0) {
+        /* node-next 相连， 则合并 ==>nnode */
+        if (next && is_ok == 0) {
+            if (next->heap_pos == heap_pos + aligned_size) {
                 free_node* nnode;
-                nnode           = (free_node*) (heap_begin + heap_pos);
-                nnode->size     = next->size + aligned_size;
-                nnode->prev_pos = 0;
-                nnode->next_pos = 0;
-                nnode->heap_pos = heap_pos;
+                nnode = (free_node*) (heap_begin + heap_pos);
 
-                if (prev) {
-                    prev->next_pos = heap_pos;
-                    nnode->prev_pos = prev->heap_pos;
+                nnode->prev_pos = next->prev_pos;
+                nnode->next_pos = next->next_pos;
+                nnode->heap_pos = heap_pos;
+                nnode->size     = next->size + aligned_size;
+
+                is_ok = 1;
+
+                if (next->prev_pos != 0) {
+                    free_node* nprev;
+                    nprev = (free_node*) (heap_begin + next->prev_pos);
+
+                    nprev->next_pos = heap_pos;
                 } else {
-                    /* 这是根节点 */
+                    /*next 为根节点 更新summary*/
                     hs->fnode = heap_pos;
                 }
 
-                if (next) {
-                    next->prev_pos = heap_pos;
-                    nnode->next_pos = next->heap_pos;
+                if (next->next_pos != 0) {
+                    free_node* nnext;
+                    nnext = (free_node*) (heap_begin + next->next_pos);
+
+                    nnext->prev_pos = heap_pos;
                 }
             }
-        } /* 存在freenode 链表 */
+        }
+
+        /* 均不相连 插入新的空闲空间节点 ==>nnode */
+        if (is_ok == 0) {
+            free_node* nnode;
+            nnode = (free_node*) (heap_begin + heap_pos);
+
+            nnode->prev_pos = 0;
+            nnode->next_pos = 0;
+            nnode->heap_pos = heap_pos;
+            nnode->size     = aligned_size;
+
+            printf("insert new free node %u %u\n", heap_pos, aligned_size);
+
+            if (prev) {
+                prev->next_pos  = heap_pos;
+                nnode->prev_pos = prev->heap_pos;
+            } else {
+                /* 这是根节点 */
+                hs->fnode = heap_pos;
+            }
+
+            if (next) {
+                next->prev_pos  = heap_pos;
+                nnode->next_pos = next->heap_pos;
+            }
+        }
     }
 }
 
-void* miheap_realloc(mihandle heap, void* ptr, miu32 data_size) {
-    miu32 heap_pos;
-    miu8* heap_begin;
-    miu32 aligned_size;
-    int ret;
-    miu8* nptr;
-    miu32 n_size;
+void miheap_free_raw(heap_desc* desc, void* ptr) {
+    miu32         heap_pos;
+    miu8*         heap_begin;
+    miu32         aligned_size;
+    int           ret;
+    heap_summary* hs;
 
     /* 获取heap */
-    ret = find_heap(heap, ptr, &heap_begin, &heap_pos, &aligned_size);
+    ret = find_heap(desc, ptr, &heap_begin, &heap_pos, &aligned_size);
+    if (ret != 0) {
+        trace_debug("miheap_free invalid pointer %p\n", ptr);
+        return;
+    }
+
+    hs = (heap_summary*) (heap_begin);
+
+    EAL_ticket_lock(&hs->lock);
+    node_free_raw(hs, heap_pos, aligned_size);
+    EAL_ticket_unlock(&hs->lock);
+}
+
+miu8* node_realloc_raw(heap_summary* hs, miu32 heap_pos, miu32 aligned_size, node_head* head, miu32 n_size) {
+    miu8*      heap_begin = (miu8*) hs;
+    miu8*      ptr        = heap_begin + heap_pos;
+    free_node* prev       = NULL;
+    free_node* next       = NULL;
+    node_head* nhead      = NULL;
+    miu8*      nptr       = NULL;
+
+    find_prev_next(heap_begin, heap_pos, aligned_size, &prev, &next);
+    if (next) {
+        if (next->heap_pos == heap_pos + aligned_size && next->size + aligned_size >= n_size) {
+            /* 合并 node-next --> nnode */
+            free_node* nprev;
+            free_node* nnode;
+
+            nnode = (free_node*) (heap_begin + heap_pos);
+
+            nnode->size     = next->size + aligned_size;
+            nnode->heap_pos = heap_pos;
+            nnode->prev_pos = next->prev_pos;
+            nnode->next_pos = next->next_pos;
+
+            if (nnode->prev_pos != 0) {
+                nprev = (free_node*) (heap_begin + nnode->prev_pos);
+
+                nprev->next_pos = nnode->heap_pos;
+            } else {
+                hs->fnode = nnode->heap_pos;
+            }
+
+            nptr  = miheap_malloc_at_fnode(heap_begin, nnode, n_size);
+            nhead = (node_head*) (nptr - sizeof(node_head));
+
+            nhead->ctick = head->ctick;
+            nhead->mtick = head->mtick;
+            nhead->atick = head->atick;
+
+            return nptr;
+        }
+    }
+
+    if (prev && next) {
+        if (prev->heap_pos + prev->size == heap_pos && next->heap_pos == heap_pos + aligned_size &&
+            prev->size + aligned_size + next->size >= n_size) {
+            free_node* nnext;
+            free_node* nnode;
+
+            /* 合并 prev-node-next --> nnode */
+            nnode           = prev;
+            nnode->size     = prev->size + aligned_size + next->size;
+            nnode->next_pos = next->next_pos;
+
+            if (next->next_pos != 0) {
+                nnext = (free_node*) (heap_begin + next->next_pos);
+
+                nnext->prev_pos = nnode->heap_pos;
+            }
+
+            /* 分配内存 */
+            nptr  = miheap_malloc_at_fnode(heap_begin, nnode, n_size);
+            nhead = (node_head*) (nptr - sizeof(node_head));
+
+            nhead->ctick = head->ctick;
+            nhead->mtick = head->mtick;
+            nhead->atick = head->atick;
+
+            /* 移动数据内容 */
+            memcpy(nptr, ptr, aligned_size - sizeof(node_head));
+
+            return nptr;
+        }
+    }
+
+    if (prev) {
+        if (prev->heap_pos + prev->size == heap_pos && prev->size + aligned_size >= n_size) {
+            free_node* nnode;
+
+            /* 合并 prev-node -->nnode */
+            nnode       = prev;
+            nnode->size = prev->size + aligned_size;
+            /* 分配内存 */
+            nptr = miheap_malloc_at_fnode(heap_begin, nnode, n_size);
+            /* 更新节点内容 */
+            nhead = (node_head*) (nptr - sizeof(node_head));
+
+            nhead->ctick = head->ctick;
+            nhead->mtick = head->mtick;
+            nhead->atick = head->atick;
+
+            /* 移动数据内容 */
+            memcpy(nptr, ptr, aligned_size - sizeof(node_head));
+
+            return nptr;
+        }
+    }
+    return nptr;
+}
+
+void* miheap_realloc_raw(heap_desc* desc, void* ptr, miu32 data_size) {
+    miu32         heap_pos;
+    miu8*         heap_begin;
+    miu32         aligned_size;
+    int           ret;
+    miu8*         nptr;
+    miu32         n_size;
+    node_head     head;
+    node_head*    nhead = NULL;
+    heap_summary* hs    = NULL;
+
+    /* 获取heap */
+    ret = find_heap(desc, ptr, &heap_begin, &heap_pos, &aligned_size);
     if (ret != 0) return NULL;
-
-    if (data_size + sizeof(node_head) <= aligned_size) return ptr;
-
 
     n_size = ((data_size + sizeof(node_head) + HEAP_DATA_ALIGN - 1) / HEAP_DATA_ALIGN) * HEAP_DATA_ALIGN;
 
-    nptr = miheap_malloc(heap, n_size);
+    /* 1 空闲空间满足要求 */
+    if (n_size <= aligned_size) return ptr;
 
+    /* 2 查找相临空闲节点，进行分配 */
+    hs = (heap_summary*) heap_begin;
+    memcpy(&head, heap_begin + heap_pos, sizeof(node_head));
+    EAL_ticket_lock(&hs->lock);
+    nptr = node_realloc_raw(hs, heap_pos, aligned_size, &head, n_size);
+    EAL_ticket_unlock(&hs->lock);
+    if (nptr) return nptr;
+
+    /* 3 在堆上重新分配数据 */
+    nptr = miheap_malloc_raw(desc, n_size);
+
+    /* 分配失败 */
     if (nptr == NULL) return NULL;
 
     memset(nptr, 0, n_size);
+    /* 移动数据内容 */
     memcpy(nptr, ptr, aligned_size - sizeof(node_head));
 
-    miheap_free(heap, ptr);
+    nhead = (node_head*) (nptr - sizeof(node_head));
+    /* 更新节点内容 */
+    nhead->ctick = head.ctick;
+    nhead->mtick = head.mtick;
+    nhead->atick = head.atick;
+    /* 移动数据内容 */
+    memcpy(nptr, ptr, aligned_size - sizeof(node_head));
+
+    /* 释放现有内存 */
+    miheap_free_raw(desc, ptr);
 
     return nptr;
 }
 
+void miheap_report_raw(heap_desc* desc) {
+    miu32 heap_idx = 0;
+    while (desc != NULL) {
+        int i;
+        for (i = 0; i < HEAP_COUNT; ++i, ++heap_idx) {
+            heap_summary* hs;
+            miu8*         heap_begin;
+            free_node*    fnode;
+            /* heap 没打开 */
+            if (desc->ptr[i] == NULL) break;
+
+            hs         = (heap_summary*) desc->ptr[i];
+            heap_begin = desc->ptr[i];
+            printf("heap %u %p, size: %u\t", heap_idx, (void*) hs, hs->size);
+
+            EAL_ticket_lock(&hs->lock);
+            fnode = (free_node*) (heap_begin + hs->fnode);
+            if (hs->fnode == FNODE_NONE) {
+                printf("no free node\n");
+            } else {
+                int j = 0;
+                printf("first free node %u\n", hs->fnode);
+                for (;; ++j) {
+                    printf(
+                        "  fnode[%02d] pos[%08d]"                     /* fnode info */
+                        ", size[%08d] [%u,%u] \n",                    /* fnode detail*/
+                        j + 1, fnode->heap_pos,                       /*info val*/
+                        fnode->size, fnode->prev_pos, fnode->next_pos /* detail val */
+                    );
+                    if (fnode->next_pos == 0) break;
+                    fnode = (free_node*) (heap_begin + fnode->next_pos);
+                }
+            }
+            EAL_ticket_unlock(&hs->lock);
+        }
+        desc = desc->next;
+    }
+
+    printf("heap block count = %u\n", heap_idx);
+}
+
+void miheap_report(mihandle heap) {
+    heap_desc* desc = (heap_desc*) heap.ptr;
+
+    EAL_ticket_lock(&desc->lock);
+    miheap_report_raw(desc);
+    EAL_ticket_unlock(&desc->lock);
+}
+
+void miheap_info(mihandle heap, void* p) {
+    miu8*      ptr  = (miu8*) p;
+    node_head* node = (node_head*) (ptr - sizeof(node_head));
+    printf("node %p :\tpos:%u\tsize:%u\n", p, node->id * HEAP_DATA_ALIGN, node->size);
+}
+
+void* miheap_malloc(mihandle heap, miu32 data_size) {
+    void*      ptr;
+    heap_desc* desc;
+    desc = (heap_desc*) heap.ptr;
+
+    EAL_ticket_lock(&desc->lock);
+    ptr = miheap_malloc_raw(desc, data_size);
+    EAL_ticket_unlock(&desc->lock);
+
+    return ptr;
+}
+
+void miheap_free(mihandle heap, void* ptr) {
+    heap_desc* desc;
+    desc = (heap_desc*) heap.ptr;
+
+    EAL_ticket_lock(&desc->lock);
+    miheap_free_raw(desc, ptr);
+    EAL_ticket_unlock(&desc->lock);
+}
+
+void* miheap_realloc(mihandle heap, void* ptr, miu32 data_size) {
+    void*      nptr;
+    heap_desc* desc;
+    desc = (heap_desc*) heap.ptr;
+
+    EAL_ticket_lock(&desc->lock);
+    nptr = miheap_realloc_raw(desc, ptr, data_size);
+    EAL_ticket_unlock(&desc->lock);
+
+    return nptr;
+}
+
+miu8* node_open_raw(heap_summary* hs, miu32 node_id) {
+    miu8* heap_begin = (miu8*) hs;
+    miu32 heap_pos   = node_id * HEAP_DATA_ALIGN;
+    return heap_begin + heap_pos + sizeof(node_head);
+}
+
+miu8* miheap_open_raw(heap_desc* desc, miu32 heap_id, miu32 node_id) {
+    miu8*         ptr      = NULL;
+    miu32         heap_idx = 0;
+    HANDLE        hfile;
+    miu8*         hptr;
+    miu32         size;
+    int           ret;
+    heap_summary* hs;
+
+    /* find node */
+    for (; heap_id >= HEAP_COUNT; heap_id -= HEAP_COUNT) {
+        if (desc->next == NULL) {
+            heap_desc* next_desc;
+            next_desc  = (heap_desc*) HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(heap_desc));
+            desc->next = next_desc;
+        }
+        desc = desc->next;
+    }
+
+    hfile = desc->hfile[heap_id];
+    if (hfile == NULL) {
+        /* 使用默认大小打开/新建内存 */
+        ret = create_mapview(heap_idx, 0, &hfile, &hptr, &size);
+        if (ret == 0) {
+            desc->hfile[heap_id] = hfile;
+            desc->ptr[heap_id]   = hptr;
+            desc->size[heap_id]  = size;
+        }
+    }
+
+    hs = (heap_summary*) desc->ptr[heap_id];
+    /* 查找节点 */
+    if (hs != NULL) ptr = node_malloc_raw(hs, node_id);
+
+    return ptr;
+}
+
+void* miheap_open(mihandle heap, miu32 heap_id, miu32 node_id) {
+    void*      nptr;
+    heap_desc* desc;
+    desc = (heap_desc*) heap.ptr;
+    EAL_ticket_lock(&desc->lock);
+    nptr = miheap_open_raw(desc, heap_id, node_id);
+    EAL_ticket_unlock(&desc->lock);
+
+    return nptr;
+}
