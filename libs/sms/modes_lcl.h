@@ -48,11 +48,11 @@ typedef unsigned char u8;
         asm("bswapl %0; bswapl %1" : "+r"(hi_), "+r"(lo_)); \
         (u64) hi_ << 32 | lo_;                              \
     })
-#define BSWAP4(x)                      \
-    ({                                 \
-        u32 ret_ = (x);                \
-        asm("bswapl %0" : "+r"(ret_)); \
-        ret_;                          \
+#define BSWAP4(x)                        \
+    ({                                   \
+        u32 ret_ = (x);                  \
+        __asm("bswapl %0" : "+r"(ret_)); \
+        ret_;                            \
     })
 #elif defined(__aarch64__)
 #define BSWAP8(x)                               \
