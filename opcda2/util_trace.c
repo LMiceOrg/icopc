@@ -1,11 +1,11 @@
 /** Copyright 2018, 2021 He Hao<hehaoslj@sina.com> */
 #include "util_trace.h"
+
 #include <stdarg.h>
 #include <stdio.h>
-#include <unistd.h>
-
 #include <sysinfoapi.h>
 #include <timezoneapi.h>
+#include <unistd.h>
 #include <windows.h>
 
 #include "util_ticketlock.h"
@@ -141,11 +141,11 @@ void wtrace_debug(const wchar_t* format, ...) {
     wchar_t wbuff[1024];
     char    buff[2048];
     int     len;
+    va_list vlist;
 
     memset(buff, 0, sizeof(buff));
     memset(wbuff, 0, sizeof(wbuff));
 
-    va_list vlist;
     va_start(vlist, format);
     vswprintf(wbuff, sizeof(wbuff) / sizeof(wchar_t), format, vlist);
     /* vwprintf(format, vlist); */
