@@ -16,7 +16,7 @@
 
 #include "eal/lmice_eal_common.h"
 
-/* 服务访问接口(SPI Service Provider Interface)分多层
+/* 服务访问接口(SPI Service Procedure Interface)分多层
 层0 c风格API
 层1 C++风格API
 层2 高层API
@@ -25,6 +25,20 @@
 
 前缀mi(Lmilab)
 
+是LMICE所提供服务的接口与约定，提供开发人员/应用软件基于LMICED的访问例程。
+
+资源管理服务（消息资源，时间（定时器）资源）
+任务调度服务（状态机， 离散事件（消息事件，时间事件，组合事件））
+网络通讯服务（流入处理，流出处理）
+可信计算服务（）
+
+
+类比于Linux/Unix: 外物皆文件； LMICE：万物皆资源
+资源具有时效性，结构性，主体性
+
+时效性指同一件事物在不同的时间具有很大的性质上的差异，我们管这个差异性叫时效性。时效性影响着决策的生效时间，时效性决定了决策在特定时间内是否有效。
+结构性定义是英国罗素用语。指如果我们要下定义的事物是一个由已知元素组成的结构，我们可以通过说出这些元素和借以构成这个结构的那些关系，给它下的定义。如果所下定义的事物是一个集合，那也可能只需说出它的结构，因为那些元素可能无关宏旨。
+主体性指人在实践过程中表现出来的能力、作用、个人看法以及地位，即人的自主、主动、能动、自由、有目的地活动的地位和特性。
 */
 
 /* 类型定义 */
@@ -154,7 +168,7 @@ void spi_release(mihandle spi);
 /** ***** 发布服务 ***** */
 
 /**
- * @brief spi_pub_create 创建发布资源
+ * @brief 创建 发布资源
  * @param spi[in] 服务程序接口
  * @param t_name[in] 类型名称
  * @param o_name[in] 对象名称
@@ -165,9 +179,8 @@ void spi_release(mihandle spi);
 mihandle spi_pub_create(mihandle spi, const mistring t_name, const mistring o_name, miu32 size, miu32 mode);
 
 /**
- * @brief spi_pub_release 注销发布资源
- * @param spi[in] 服务程序接口
- * @param pub[in] 发布资源句柄
+ * @brief 释放 发布资源
+ * @param pub[in] 发布资源
  */
 void spi_pub_release(mihandle pub);
 

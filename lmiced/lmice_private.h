@@ -131,18 +131,25 @@ typedef struct mispi {
 } mispi;
 
 typedef struct node_head {
+    /* 堆属性 */
     miu32 heap_id; /* 堆 id */
     miu32 id;      /* 资源id */
     miu32 size;    /* 对齐数据长度 */
-    miu32 lock;
+    miu32 lock;    /* 锁 */
 
-    miu8  data_type; /**< 资源类型 */
-    miu8  mode;      /**< 访问权限 */
-    miu16 uid;       /**< 所有者id */
+    /* 对象属性 */
+    miu8   o_type;   /**< 资源类型 */
+    miu8   o_mode;   /**< 访问权限 */
+    miu16  o_owner;  /**< 所有者id */
+    mitick o_create; /**< 创建时间 */
+    mitick o_access; /**< 访问时间 */
 
-    mitick ctick;
-    mitick mtick;
-    mitick atick;
+    /* 数据属性 */
+    miu32  d_size;
+    miu32  d_session;
+    mitype d_type;
+    miinst d_inst; /**<   */
+    mitick d_tick; /**< 数据（修改）时间 */
 } node_head;
 
 #define EAL_data_lock(ptr) EAL_ticket_lock(&((node_head*) ((miu8*) ptr - sizeof(node_head)))->lock)

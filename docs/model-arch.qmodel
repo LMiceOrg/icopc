@@ -1,0 +1,477 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<qmt>
+ <project>
+  <uid>{4c54dc5b-71c0-46ca-95f8-e6e6ba04c676}</uid>
+  <root-package>
+   <instance>
+    <MPackage>
+     <base-MObject>
+      <MObject>
+       <base-MElement>
+        <MElement>
+         <uid>{a67b6ba0-debe-4ad7-899f-f073a17b141f}</uid>
+        </MElement>
+       </base-MElement>
+       <name>Scratch</name>
+       <children>
+        <handles>
+         <handles>
+          <qlist>
+           <item>
+            <handle>
+             <uid>{88bc09c9-8917-4e5f-bc20-18c60d517541}</uid>
+             <target>
+              <instance type="MCanvasDiagram">
+               <MCanvasDiagram>
+                <base-MDiagram>
+                 <MDiagram>
+                  <base-MObject>
+                   <MObject>
+                    <base-MElement>
+                     <MElement>
+                      <uid>{88bc09c9-8917-4e5f-bc20-18c60d517541}</uid>
+                     </MElement>
+                    </base-MElement>
+                    <name>Scratch</name>
+                   </MObject>
+                  </base-MObject>
+                  <elements>
+                   <qlist>
+                    <item>
+                     <instance type="DAnnotation">
+                      <DAnnotation>
+                       <base-DElement>
+                        <DElement>
+                         <uid>{ab915085-a924-4fa1-ae2d-9251571e6d89}</uid>
+                        </DElement>
+                       </base-DElement>
+                       <text>使用C++特性 -TemplateLibrary
+编译时多态 （&quot;零&quot;开销）
+继承实现 （组合对象）
+
+
+使用Thunk 特性-MessageDriven
+消息处理链 
+处理函数与状态
+
+自动更新与升级-Repository</text>
+                       <pos>x:690;y:135</pos>
+                       <rect>x:0;y:0;w:339.203;h:167</rect>
+                       <auto-sized>false</auto-sized>
+                      </DAnnotation>
+                     </instance>
+                    </item>
+                    <item>
+                     <instance type="DItem">
+                      <DItem>
+                       <base-DObject>
+                        <DObject>
+                         <base-DElement>
+                          <DElement>
+                           <uid>{d22394d1-6d93-4471-abd4-5268970b839f}</uid>
+                          </DElement>
+                         </base-DElement>
+                         <object>{c0f35444-0a51-4de1-b030-d45106a48400}</object>
+                         <name>Start Page</name>
+                         <pos>x:550;y:600</pos>
+                         <rect>x:-155;y:-130;w:310;h:260</rect>
+                         <auto-sized>false</auto-sized>
+                         <visual-role>0</visual-role>
+                        </DObject>
+                       </base-DObject>
+                       <shape-editable>false</shape-editable>
+                      </DItem>
+                     </instance>
+                    </item>
+                    <item>
+                     <instance type="DItem">
+                      <DItem>
+                       <base-DObject>
+                        <DObject>
+                         <base-DElement>
+                          <DElement>
+                           <uid>{90ada9b7-81c4-46ba-a529-074d120589ba}</uid>
+                          </DElement>
+                         </base-DElement>
+                         <object>{e602da04-6fd5-43cd-8ff1-af897f20becc}</object>
+                         <name>New Item</name>
+                         <pos>x:500;y:625</pos>
+                         <rect>x:-90;y:-95;w:180;h:190</rect>
+                         <auto-sized>false</auto-sized>
+                         <visual-role>0</visual-role>
+                        </DObject>
+                       </base-DObject>
+                       <shape-editable>false</shape-editable>
+                      </DItem>
+                     </instance>
+                    </item>
+                    <item>
+                     <instance type="DItem">
+                      <DItem>
+                       <base-DObject>
+                        <DObject>
+                         <base-DElement>
+                          <DElement>
+                           <uid>{0ee2548c-5ecc-49ff-9d95-2ad6cd692c72}</uid>
+                          </DElement>
+                         </base-DElement>
+                         <object>{76d75b6c-d22b-4380-a40c-323d34606a4a}</object>
+                         <name>Recent Item</name>
+                         <pos>x:645;y:625</pos>
+                         <rect>x:-50;y:-95;w:100;h:190</rect>
+                         <auto-sized>false</auto-sized>
+                         <visual-role>0</visual-role>
+                        </DObject>
+                       </base-DObject>
+                       <shape-editable>false</shape-editable>
+                      </DItem>
+                     </instance>
+                    </item>
+                    <item>
+                     <instance type="DItem">
+                      <DItem>
+                       <base-DObject>
+                        <DObject>
+                         <base-DElement>
+                          <DElement>
+                           <uid>{55373cd4-7f36-4685-94f5-d58a494a2620}</uid>
+                          </DElement>
+                         </base-DElement>
+                         <object>{ba92a9a5-12c2-4704-b5a3-21c96fad4630}</object>
+                         <name>Config Page</name>
+                         <pos>x:990;y:605</pos>
+                         <rect>x:-175;y:-135;w:350;h:270</rect>
+                         <auto-sized>false</auto-sized>
+                         <visual-role>0</visual-role>
+                        </DObject>
+                       </base-DObject>
+                       <shape-editable>false</shape-editable>
+                      </DItem>
+                     </instance>
+                    </item>
+                    <item>
+                     <instance type="DDependency">
+                      <DDependency>
+                       <base-DRelation>
+                        <DRelation>
+                         <base-DElement>
+                          <DElement>
+                           <uid>{9fe7f015-d3b8-4876-9165-fe49ddb5e7b3}</uid>
+                          </DElement>
+                         </base-DElement>
+                         <object>{fb458522-d8ae-4940-bf1f-23e445d7764f}</object>
+                         <a>{55373cd4-7f36-4685-94f5-d58a494a2620}</a>
+                         <b>{d22394d1-6d93-4471-abd4-5268970b839f}</b>
+                        </DRelation>
+                       </base-DRelation>
+                      </DDependency>
+                     </instance>
+                    </item>
+                    <item>
+                     <instance type="DItem">
+                      <DItem>
+                       <base-DObject>
+                        <DObject>
+                         <base-DElement>
+                          <DElement>
+                           <uid>{e35c79e1-689f-4d64-8ff8-4dc6f07f6baf}</uid>
+                          </DElement>
+                         </base-DElement>
+                         <object>{9efed054-3458-47e5-b97f-6a11e73a3d34}</object>
+                         <name>OPC Conn</name>
+                         <pos>x:885;y:630</pos>
+                         <rect>x:-70;y:-100;w:140;h:200</rect>
+                         <auto-sized>false</auto-sized>
+                         <visual-role>0</visual-role>
+                        </DObject>
+                       </base-DObject>
+                       <shape-editable>false</shape-editable>
+                      </DItem>
+                     </instance>
+                    </item>
+                    <item>
+                     <instance type="DItem">
+                      <DItem>
+                       <base-DObject>
+                        <DObject>
+                         <base-DElement>
+                          <DElement>
+                           <uid>{b190d1aa-77dc-4a9a-b2b0-199df3bd6853}</uid>
+                          </DElement>
+                         </base-DElement>
+                         <object>{d0aea9ce-fef1-4bb9-991a-c84f713cf871}</object>
+                         <name>OPC Group</name>
+                         <pos>x:890;y:645</pos>
+                         <rect>x:-60;y:-75;w:120;h:150</rect>
+                         <auto-sized>false</auto-sized>
+                         <visual-role>0</visual-role>
+                        </DObject>
+                       </base-DObject>
+                       <shape-editable>false</shape-editable>
+                      </DItem>
+                     </instance>
+                    </item>
+                    <item>
+                     <instance type="DItem">
+                      <DItem>
+                       <base-DObject>
+                        <DObject>
+                         <base-DElement>
+                          <DElement>
+                           <uid>{fcba5285-eac4-45c4-9c9c-cdec5b2c5089}</uid>
+                          </DElement>
+                         </base-DElement>
+                         <object>{68f84ea8-184b-43d5-a3e8-b84c385b249b}</object>
+                         <name>OPC Item</name>
+                         <pos>x:900;y:660</pos>
+                         <rect>x:-45;y:-50;w:90;h:100</rect>
+                         <auto-sized>false</auto-sized>
+                         <visual-role>0</visual-role>
+                        </DObject>
+                       </base-DObject>
+                       <shape-editable>false</shape-editable>
+                      </DItem>
+                     </instance>
+                    </item>
+                    <item>
+                     <instance type="DItem">
+                      <DItem>
+                       <base-DObject>
+                        <DObject>
+                         <base-DElement>
+                          <DElement>
+                           <uid>{ade313a8-8f30-4e78-8c9a-ef705af2c4f8}</uid>
+                          </DElement>
+                         </base-DElement>
+                         <object>{a61e03ea-d04c-4ed6-81af-46bde4a398a5}</object>
+                         <name>Edit View</name>
+                         <pos>x:1060;y:630</pos>
+                         <rect>x:-95;y:-100;w:190;h:200</rect>
+                         <auto-sized>false</auto-sized>
+                         <visual-role>0</visual-role>
+                        </DObject>
+                       </base-DObject>
+                       <shape-editable>false</shape-editable>
+                      </DItem>
+                     </instance>
+                    </item>
+                   </qlist>
+                  </elements>
+                  <last-modified>1615302804544</last-modified>
+                  <toolbarid>General</toolbarid>
+                 </MDiagram>
+                </base-MDiagram>
+               </MCanvasDiagram>
+              </instance>
+             </target>
+            </handle>
+           </item>
+           <item>
+            <handle>
+             <uid>{c0f35444-0a51-4de1-b030-d45106a48400}</uid>
+             <target>
+              <instance type="MItem">
+               <MItem>
+                <base-MObject>
+                 <MObject>
+                  <base-MElement>
+                   <MElement>
+                    <uid>{c0f35444-0a51-4de1-b030-d45106a48400}</uid>
+                   </MElement>
+                  </base-MElement>
+                  <name>Start Page</name>
+                 </MObject>
+                </base-MObject>
+               </MItem>
+              </instance>
+             </target>
+            </handle>
+           </item>
+           <item>
+            <handle>
+             <uid>{e602da04-6fd5-43cd-8ff1-af897f20becc}</uid>
+             <target>
+              <instance type="MItem">
+               <MItem>
+                <base-MObject>
+                 <MObject>
+                  <base-MElement>
+                   <MElement>
+                    <uid>{e602da04-6fd5-43cd-8ff1-af897f20becc}</uid>
+                   </MElement>
+                  </base-MElement>
+                  <name>New Item</name>
+                 </MObject>
+                </base-MObject>
+               </MItem>
+              </instance>
+             </target>
+            </handle>
+           </item>
+           <item>
+            <handle>
+             <uid>{76d75b6c-d22b-4380-a40c-323d34606a4a}</uid>
+             <target>
+              <instance type="MItem">
+               <MItem>
+                <base-MObject>
+                 <MObject>
+                  <base-MElement>
+                   <MElement>
+                    <uid>{76d75b6c-d22b-4380-a40c-323d34606a4a}</uid>
+                   </MElement>
+                  </base-MElement>
+                  <name>Recent Item</name>
+                 </MObject>
+                </base-MObject>
+               </MItem>
+              </instance>
+             </target>
+            </handle>
+           </item>
+           <item>
+            <handle>
+             <uid>{ba92a9a5-12c2-4704-b5a3-21c96fad4630}</uid>
+             <target>
+              <instance type="MItem">
+               <MItem>
+                <base-MObject>
+                 <MObject>
+                  <base-MElement>
+                   <MElement>
+                    <uid>{ba92a9a5-12c2-4704-b5a3-21c96fad4630}</uid>
+                   </MElement>
+                  </base-MElement>
+                  <name>Config Page</name>
+                  <relations>
+                   <handles>
+                    <handles>
+                     <qlist>
+                      <item>
+                       <handle>
+                        <uid>{fb458522-d8ae-4940-bf1f-23e445d7764f}</uid>
+                        <target>
+                         <instance type="MDependency">
+                          <MDependency>
+                           <base-MRelation>
+                            <MRelation>
+                             <base-MElement>
+                              <MElement>
+                               <uid>{fb458522-d8ae-4940-bf1f-23e445d7764f}</uid>
+                              </MElement>
+                             </base-MElement>
+                             <a>{ba92a9a5-12c2-4704-b5a3-21c96fad4630}</a>
+                             <b>{c0f35444-0a51-4de1-b030-d45106a48400}</b>
+                            </MRelation>
+                           </base-MRelation>
+                          </MDependency>
+                         </instance>
+                        </target>
+                       </handle>
+                      </item>
+                     </qlist>
+                    </handles>
+                   </handles>
+                  </relations>
+                 </MObject>
+                </base-MObject>
+               </MItem>
+              </instance>
+             </target>
+            </handle>
+           </item>
+           <item>
+            <handle>
+             <uid>{9efed054-3458-47e5-b97f-6a11e73a3d34}</uid>
+             <target>
+              <instance type="MItem">
+               <MItem>
+                <base-MObject>
+                 <MObject>
+                  <base-MElement>
+                   <MElement>
+                    <uid>{9efed054-3458-47e5-b97f-6a11e73a3d34}</uid>
+                   </MElement>
+                  </base-MElement>
+                  <name>OPC Conn</name>
+                 </MObject>
+                </base-MObject>
+               </MItem>
+              </instance>
+             </target>
+            </handle>
+           </item>
+           <item>
+            <handle>
+             <uid>{d0aea9ce-fef1-4bb9-991a-c84f713cf871}</uid>
+             <target>
+              <instance type="MItem">
+               <MItem>
+                <base-MObject>
+                 <MObject>
+                  <base-MElement>
+                   <MElement>
+                    <uid>{d0aea9ce-fef1-4bb9-991a-c84f713cf871}</uid>
+                   </MElement>
+                  </base-MElement>
+                  <name>OPC Group</name>
+                 </MObject>
+                </base-MObject>
+               </MItem>
+              </instance>
+             </target>
+            </handle>
+           </item>
+           <item>
+            <handle>
+             <uid>{68f84ea8-184b-43d5-a3e8-b84c385b249b}</uid>
+             <target>
+              <instance type="MItem">
+               <MItem>
+                <base-MObject>
+                 <MObject>
+                  <base-MElement>
+                   <MElement>
+                    <uid>{68f84ea8-184b-43d5-a3e8-b84c385b249b}</uid>
+                   </MElement>
+                  </base-MElement>
+                  <name>OPC Item</name>
+                 </MObject>
+                </base-MObject>
+               </MItem>
+              </instance>
+             </target>
+            </handle>
+           </item>
+           <item>
+            <handle>
+             <uid>{a61e03ea-d04c-4ed6-81af-46bde4a398a5}</uid>
+             <target>
+              <instance type="MItem">
+               <MItem>
+                <base-MObject>
+                 <MObject>
+                  <base-MElement>
+                   <MElement>
+                    <uid>{a61e03ea-d04c-4ed6-81af-46bde4a398a5}</uid>
+                   </MElement>
+                  </base-MElement>
+                  <name>Edit View</name>
+                 </MObject>
+                </base-MObject>
+               </MItem>
+              </instance>
+             </target>
+            </handle>
+           </item>
+          </qlist>
+         </handles>
+        </handles>
+       </children>
+      </MObject>
+     </base-MObject>
+    </MPackage>
+   </instance>
+  </root-package>
+ </project>
+</qmt>

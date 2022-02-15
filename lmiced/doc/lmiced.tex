@@ -1,0 +1,134 @@
+% !TeX root = ./lmiced.tex
+% !TEX TS-program = xelatex
+% !TEX encoding = UTF-8 Unicode
+%\documentclass[10pt, a4paper]{article}
+%\documentclass[10pt, a4paper]{book}
+\documentclass[UTF8, 10pt, a4paper]{ctexart}
+
+% fontawesome
+\usepackage{fontawesome}
+\usepackage{fontspec,xltxtra,xunicode}
+
+\usepackage{geometry}
+\geometry{a4paper,left=3cm,right=2cm,top=3cm,bottom=3cm}
+
+%嵌入pdf
+\usepackage{pdfpages}
+
+% 使用彩色
+\usepackage{color}
+
+% 表格
+\usepackage{multirow}
+
+% 代码块
+\usepackage{listings}
+
+%支持嵌入图像
+\usepackage{graphicx}
+\usepackage{subfigure}
+
+\usepackage{enumitem}
+
+%数学公式
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+
+%使用注释
+\usepackage{comment}
+\usepackage{marginnote}
+
+%使用remarker listings 实现代码语法高亮 和批注
+\include{lmdoc_remarker}
+
+
+
+%支持CJK（东亚）字体
+\usepackage{xeCJK}
+
+%设置中文字体
+%\setCJKmainfont[ItalicFont={Helvetica}, BoldFont={STHeiti}]{Songti} % 设置缺省中文字体
+%\setCJKsansfont{Songti}
+%\setCJKmonofont{GB18030}   % 设置等宽字体
+%设置英文字体
+\setmainfont{Times New Roman}   % 英文衬线字体
+\setsansfont{Verdana}
+\setmonofont{Courier New}   % 英文等宽字体
+
+
+%table 位置参数
+\usepackage{float}
+
+%\usepackage{draftwatermark}
+%\SetWatermarkText{草稿}
+%\SetWatermarkScale{1}%设置水印的显示大小
+
+
+
+% 设置图片格式
+\renewcommand{\figurename}{图}
+
+
+%设置文档字体
+\newcommand{\song}{\CJKfamily{song}} %
+\newcommand{\fontfangsong}{\CJKfamily{fs}} %
+\newcommand{\hei}{\CJKfamily{hei}} %
+\newcommand{\erhao}{\fontsize{22pt}{22pt}\selectfont} %
+\newcommand{\xiaoer}{\fontsize{18pt}{25pt}\selectfont} %
+\newcommand{\sanhao}{\fontsize{16pt}{24pt}\selectfont} %
+\newcommand{\xiaosan}{\fontsize{15pt}{22pt}\selectfont} %
+\newcommand{\sihao}{\fontsize{14pt}{21pt}\selectfont} %
+\newcommand{\xiaosi}{\fontsize{12pt}{12pt}\selectfont} %
+\newcommand{\wuhao}{\fontsize{11pt}{11pt}\selectfont} %
+\newcommand{\xiaowu}{\fontsize{9pt}{12pt}\selectfont} %
+
+%设置文档格式
+\newcommand{\biaoti}{\hei\erhao} % 标题
+\newcommand{\zuozhe}{\fontfangsong\xiaosi} % 作者
+\newcommand{\zaiyao}{\song\xiaowu} % 摘要
+\newcommand{\dizhi}{\song\xiaowu} % 地址
+\newcommand{\zhengwen}{\song\wuhao} % 正文
+\newcommand{\guanjianzi}{\noindent\hei\xiaowu\textbf} % 关键字
+\newcommand{\biaotiyi}{\noindent\hei\sanhao\textbf} % 一级标题
+\newcommand{\biaotier}{\noindent\song\sanhao\textbf} % 二级标题
+\newcommand{\biaotisan}{\noindent\song\sihao\textbf} % 三级标题
+
+%设置首行缩进
+\usepackage{indentfirst}
+
+%设置行间距
+\linespread{1.5}
+
+\defaultfontfeatures{Mapping=tex-text}
+\XeTeXlinebreaklocale “zh”
+\XeTeXlinebreakskip = 0pt plus 1pt minus 0.1pt  %文章内中文自动换行
+
+%文档参数
+\newcommand{\daxitongmingchen}{LMILAB个人实验室}
+\newcommand{\xitongmingchen}{LMILAB实验室}
+\newcommand{\benxitong}{LMILAB}
+\newcommand{\wendangzuozhe}{LMiLab开发组}
+\newcommand{\wendangmingchen}{LMILAB个人实验室软件设计文档}
+\newcommand{\wendangbanben}{1.7}
+\newcommand{\xitongbiaoshi}{THUDEE-2021-D4SIM}
+\newcommand{\biaoshi}{D4SIM}
+
+
+\title{\xitongmingchen}
+\author{\wendangzuozhe}
+
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\lfoot{软件设计文档}
+\cfoot{\thepage}
+\rfoot{\wendangzuozhe}
+%\fancyhead[L]{\title}
+\fancyhead[C]{\xitongmingchen}
+%\fancyhead[R]{\leftmark}
+
+%文档
+\begin{document}
+\wendangmingchen
+\end{document}

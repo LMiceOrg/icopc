@@ -15,7 +15,12 @@ void CALLBACK mmtimer_main(UINT id, UINT msg, DWORD_PTR user, DWORD_PTR dw1, DWO
     int           i;
     timer_server* ts = (timer_server*) user;
 
-    ts->tick += ts->res;
+    (void)id;
+    (void)msg;
+    (void)dw1;
+    (void)dw2;
+
+    ts->tick += ts->res * 10000;
 
     for (i = 0; i < MMTIME_MAX_SIZE; ++i) {
         timer_data* td = ts->td + i;

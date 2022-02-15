@@ -35,7 +35,7 @@ typedef struct iclist_head {
         _item                    data[data_size];                                                \
         _item                    extra[extra_size];                                              \
     } _type;                                                                                     \
-    typedef enum _type##_enum{_type##_item_size = sizeof(_item), _type##_data_size = data_size,  \
+    typedef enum _type##_enum {_type##_item_size = sizeof(_item), _type##_data_size = data_size,  \
                               _type##_extra_size = extra_size,                                   \
                               _type##_capacity   = (data_size + extra_size)} _type##_enum;         \
     extern unsigned int iclist_##_type##_add(_type* pt, unsigned int hash);                      \

@@ -50,7 +50,12 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:console /machine:I386
-# ADD LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ws2_32.lib /nologo /subsystem:console /machine:I386
+# ADD LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ws2_32.lib shlwapi.lib websocket-mt.lib wtclient.lib /nologo /subsystem:console /machine:I386 /libpath:"../wtclient" /libpath:"../websocket/Release"
+# Begin Special Build Tool
+SOURCE="$(InputPath)"
+PreLink_Desc=MT compile message
+PreLink_Cmds=mt -U win_message.mc
+# End Special Build Tool
 
 !ELSEIF  "$(CFG)" == "winserver - Win32 Debug"
 
@@ -74,7 +79,12 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:console /debug /machine:I386 /pdbtype:sept
-# ADD LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ws2_32.lib  shlwapi.lib websocket-mtd.lib wtclient.lib /nologo /subsystem:console /debug /machine:I386 /pdbtype:sept /libpath:"../wtclient" /libpath:"../websocket/Debug"
+# ADD LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ws2_32.lib shlwapi.lib websocket-mtd.lib wtclient.lib /nologo /subsystem:console /debug /machine:I386 /pdbtype:sept /libpath:"../wtclient" /libpath:"../websocket/Debug"
+# Begin Special Build Tool
+SOURCE="$(InputPath)"
+PreLink_Desc=MC compile message
+PreLink_Cmds=mc -U win_message.mc
+# End Special Build Tool
 
 !ENDIF 
 
@@ -87,7 +97,7 @@ LINK32=link.exe
 # PROP Default_Filter "cpp;c;cxx;rc;def;r;odl;idl;hpj;bat"
 # Begin Source File
 
-SOURCE=..\call_thunk\call_thunk.cpp
+SOURCE=.\call_thunk.cpp
 # End Source File
 # Begin Source File
 
@@ -108,6 +118,14 @@ SOURCE=.\stdafx.cpp
 # Begin Source File
 
 SOURCE=.\win_server.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\win_server.rc
+# End Source File
+# Begin Source File
+
+SOURCE=.\win_trace.cpp
 # End Source File
 # End Group
 # Begin Group "Header Files"
@@ -131,12 +149,28 @@ SOURCE=.\stdafx.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\win_message.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\win_server.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\win_trace.h
 # End Source File
 # End Group
 # Begin Group "Resource Files"
 
 # PROP Default_Filter "ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe"
+# Begin Source File
+
+SOURCE=.\wwhy64.ico
+# End Source File
 # End Group
+# Begin Source File
+
+SOURCE=.\win_message.mc
+# End Source File
 # End Target
 # End Project

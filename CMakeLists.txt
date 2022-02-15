@@ -7,6 +7,7 @@ set(CMAKE_C_LINK_FLAGS "")
 set(CMAKE_CXX_LINK_FLAGS "")
 
 # C/C++ settings
+message("${CMAKE_CXX_COMPILER}")
 IF( ${CMAKE_CXX_COMPILER} MATCHES  "[cg][+][+]")
     MESSAGE("G++  ${CMAKE_CXX_COMPILER}")
     IF(${CMAKE_CXX_COMPILER} MATCHES "i686")
@@ -17,16 +18,18 @@ IF( ${CMAKE_CXX_COMPILER} MATCHES  "[cg][+][+]")
     ELSE()
     ENDIF()
     # -Wno-unused-parameter -Wno-unused-local-typedef -fheinous-gnu-extensions
-    set(COMMON_FLAGS " ${COMMON_FLAGS} -Wno-unused-parameter -msse2 -mtune=haswell ")
+    set(COMMON_FLAGS " ${COMMON_FLAGS} -Wall -Wextra -Wpedantic -Wno-unused-parameter -msse2 -mtune=haswell ")
     set(OpenMP_FLAGS, " -fopenmp -fopenmp-simd -ftree-vectorizer-verbose=1 -ftree-vectorize")
-    set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wpedantic -std=c++11 -fno-rtti ")
+
+    set(CMAKE_CXX_FLAGS "-std=c++11 -fno-rtti ")
     set(CMAKE_CXX_FLAGS_DEBUG "-g3 -D_DEBUG")
     set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Os -s")
     # -malign-double  -march=native -mtune=native
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${COMMON_FLAGS}  ")
 
     #-std=gnu99
-    set(CMAKE_C_FLAGS "-Wall -Wextra -Wpedantic -std=gnu99 -Dinline=_inline")
+    set(CMAKE_C_FLAGS "-std=c90 -Dinline=__inline")
+    #set(CMAKE_C_FLAGS "-std=c99 -Dinline=__inline")
     set(CMAKE_C_FLAGS_DEBUG "-g3 -D_DEBUG")
     set(CMAKE_C_FLAGS_RELEASE "-O3 -Os -s")
     # -malign-double
@@ -36,22 +39,21 @@ IF( ${CMAKE_CXX_COMPILER} MATCHES  "[cg][+][+]")
     message("c  flag:${CMAKE_C_FLAGS} ")
     message("c++flag:${CMAKE_CXX_FLAGS} ")
 
-
-
-    #add_definitions(-D_BSD_SOURCE)
-    #add_definitions(-D__USE_POSIX199309)
-    #add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-std=c++11> $<$<COMPILE_LANGUAGE:C>:-std=gnu99>)
 ELSE()
 
 ENDIF()
-message("${CMAKE_SYSTEM_NAME}")
-if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-    if(MINGW)
-        message("osx-mingw")
 
+# host system name
+if (${CMAKE_HOST_SYSTEM_NAME} MATCHES "Darwin")
+    if(MINGW)
+        message("host: ${CMAKE_HOST_SYSTEM_NAME}-mingw target: ${CMAKE_SYSTEM_NAME}")
+        add_definitions("-DWIN32_LEAN_AND_MEAN -D_WIN32_WINNT=0x0401")
     endif()
-elseif (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-add_definitions("-DWIN32_LEAN_AND_MEAN -D_WIN32_WINNT=0x0401")
+elseif (${CMAKE_HOST_SYSTEM_NAME} MATCHES "Windows")
+    if(MINGW)
+        message("host: ${CMAKE_HOST_SYSTEM_NAME}-mingw target: ${CMAKE_SYSTEM_NAME}")
+        add_definitions("-DWIN32_LEAN_AND_MEAN -D_WIN32_WINNT=0x0401")
+    endif()
 endif()
 
 # FIND_LIBRARY(jansson_libs NAMES jansson
@@ -162,7 +164,6 @@ opcda2/util_ticketlock.c
 )
 ADD_LIBRARY(opcda2_static STATIC ${opcda2_SRCS})
 target_compile_definitions(opcda2_static PUBLIC "-DWIN32_LEAN_AND_MEAN -D_WIN32_WINNT=0x0401")
-#target_include_directories(opcda2_static PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/libs/jansson/src)
 
 SET_TARGET_PROPERTIES(opcda2_static PROPERTIES OUTPUT_NAME "opcda2")
 SET_TARGET_PROPERTIES(opcda2_static PROPERTIES CLEAN_DIRECT_OUTPUT 1)
@@ -173,14 +174,14 @@ opcda2/test_opc.c
 )
 
 add_executable(testopc ${testopc_SRCS})
-#-luuid -lKernel32
-target_link_libraries( testopc  opcda2_static -lole32 -lOleAut32)
+target_link_libraries( testopc  opcda2_static -lole32 -loleaut32)
 target_compile_definitions(testopc PUBLIC "-DWIN32_LEAN_AND_MEAN -D_WIN32_WINNT=0x0401")
 
 # asyncio library
 LIST(APPEND asyncio_SRCS
 lmiced/iocpserver.c
 lmiced/heap.c
+lmiced/publish.c
 )
 ADD_LIBRARY(asyncio_static STATIC ${asyncio_SRCS})
 #target_compile_definitions(asyncio_static PUBLIC "-DWIN32_LEAN_AND_MEAN -D_WIN32_WINNT=0x0401")
@@ -188,11 +189,37 @@ SET_TARGET_PROPERTIES(asyncio_static PROPERTIES OUTPUT_NAME "asyncio")
 SET_TARGET_PROPERTIES(asyncio_static PROPERTIES CLEAN_DIRECT_OUTPUT 1)
 
 
+#EAL static library
+LIST(APPEND eal_SRCS
+lmiced/eal/lmice_eal_hash.c
+)
+ADD_LIBRARY(eal_static STATIC ${eal_SRCS})
+SET_TARGET_PROPERTIES(eal_static PROPERTIES OUTPUT_NAME "eal")
+SET_TARGET_PROPERTIES(eal_static PROPERTIES CLEAN_DIRECT_OUTPUT 1)
+
 #lmiced windows service
 LIST(APPEND lmiced_SRCS
 lmiced/winmain.c
 )
 
 add_executable(lmiced ${lmiced_SRCS})
-target_link_libraries( lmiced  asyncio_static ws2_32)
+target_link_libraries( lmiced  asyncio_static ws2_32 eal_static)
 target_compile_definitions(lmiced PUBLIC "-DWIN32_LEAN_AND_MEAN -D_WIN32_WINNT=0x0401")
+
+
+#lmspi
+LIST(APPEND lmspi_SRCS
+lmiced/spi.c
+)
+ADD_LIBRARY(lmspi_static STATIC ${lmspi_SRCS})
+#target_compile_definitions(lmspi_static PUBLIC "-DWIN32_LEAN_AND_MEAN -D_WIN32_WINNT=0x0401")
+SET_TARGET_PROPERTIES(lmspi_static PROPERTIES OUTPUT_NAME "lmspi")
+SET_TARGET_PROPERTIES(lmspi_static PROPERTIES CLEAN_DIRECT_OUTPUT 1)
+
+#testspi
+LIST(APPEND testspi_SRCS
+lmiced/testspi.c
+)
+add_executable(testspi ${testspi_SRCS})
+target_link_libraries( testspi  eal_static)
+target_compile_definitions(testspi PUBLIC "-DWIN32_LEAN_AND_MEAN -D_WIN32_WINNT=0x0401")

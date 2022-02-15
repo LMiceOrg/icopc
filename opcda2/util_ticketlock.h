@@ -2,6 +2,8 @@
 #ifndef OPCDA2_UTIL_TICKETLOCK_H_
 #define OPCDA2_UTIL_TICKETLOCK_H_
 
+#include "util_atomic.h"
+
 #if defined(_WIN32)
 #define eal_tid_t unsigned int
 #elif defined(__LINUX__)
@@ -17,7 +19,7 @@ union ticketlock_u {
 };
 
 struct ticketlock_s {
-    eal_tid_t threadid;
+    eal_tid_t          threadid;
     union ticketlock_u ticket;
 };
 
@@ -25,22 +27,22 @@ typedef union ticketlock_u ticketlock_t;
 
 void eal_ticket_lock(ticketlock_t *t);
 void eal_ticket_unlock(ticketlock_t *t);
-int eal_ticket_trylock(ticketlock_t *t);
-int eal_ticket_lockable(ticketlock_t *t);
+int  eal_ticket_trylock(ticketlock_t *t);
+int  eal_ticket_lockable(ticketlock_t *t);
 
-#define EAL_ticket_lock(tlock)                     \
-    do {                                           \
-        ticketlock_u * t = (ticketlock_u *) tlock; \
-        unsigned short me;                         \
-        me = eal_atomic_xadd(&t->s.users, 1);      \
-        while (t->s.ticket != me) cpu_relax();     \
+#define EAL_ticket_lock(tlock)                       \
+    do {                                             \
+        ticketlock_t * t = (ticketlock_t *) (tlock); \
+        unsigned short me;                           \
+        me = eal_atomic_xadd(&t->s.users, 1);        \
+        while (t->s.ticket != me) cpu_relax();       \
     } while (0)
 
 #define EAL_ticket_unlock(tlock)                  \
     do {                                          \
-        ticketlock_u *t = (ticketlock_u *) tlock; \
+        ticketlock_t *t = (ticketlock_t *) tlock; \
         barrier();                                \
         t->s.ticket++;                            \
     } while (0)
 
-#endif  /** OPCDA2_UTIL_TICKETLOCK_H_ */
+#endif /** OPCDA2_UTIL_TICKETLOCK_H_ */

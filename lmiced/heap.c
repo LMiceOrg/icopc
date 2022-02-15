@@ -11,9 +11,10 @@
  * \warning 无警告
  */
 #include "heap.h"
-#include "lmice_private.h"
 
 #include <windows.h>
+
+#include "lmice_private.h"
 
 /* 自旋锁 */
 #include "../opcda2/util_atomic.h"
@@ -89,7 +90,7 @@ static __inline int create_mapview(miu32 id, miu32 size, HANDLE* pfile, miu8** p
     name[id_pos + 0] = '0' + (id / 10000) % 10;
     name[id_pos + 1] = '0' + (id / 1000) % 10;
     name[id_pos + 2] = '0' + (id / 100) % 10;
-    name[id_pos + 3] = '0' + id / 10;
+    name[id_pos + 3] = '0' + (id / 10) % 10;
     name[id_pos + 4] = '0' + id % 10;
 
     hfile = CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE | SEC_COMMIT | SEC_LARGE_PAGES, 0,
@@ -291,18 +292,18 @@ static __inline miu8* miheap_malloc_at_fnode(miu8* heap_begin, free_node* fnode,
     node->id      = heap_pos / HEAP_DATA_ALIGN;
     node->size    = aligned_size;
     node->lock    = 0;
-    #ifdef EAL_INT64
+#ifdef EAL_INT64
     node->ctick.i64.high = 0;
-    node->ctick.i64.low = 0;
+    node->ctick.i64.low  = 0;
     node->mtick.i64.high = 0;
-    node->mtick.i64.low = 0;
+    node->mtick.i64.low  = 0;
     node->atick.i64.high = 0;
-    node->atick.i64.low = 0;
-    #else
-    node->ctick   = 0;
-    node->mtick   = 0;
-    node->atick   = 0;
-    #endif
+    node->atick.i64.low  = 0;
+#else
+    node->ctick = 0;
+    node->mtick = 0;
+    node->atick = 0;
+#endif
     return (((miu8*) node) + sizeof(node_head));
 }
 

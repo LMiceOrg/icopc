@@ -4,22 +4,26 @@
 
 #include <windows.h>
 
-#define MMTIME_MAX_SIZE 128
+/* 时钟数组大小：为16的倍数 */
+#define MMTIME_MAX_SIZE (16 * 8)
 
 typedef struct {
-    int used;
-    UINT period;
-    UINT last;
+    int   used;
+    UINT  period;
+    UINT  last;
     void* data;
     /* return 0: peridoc, -1: on-shot */
-    int (*timer_callback)(void *pdata, UINT tick);
+    int (*timer_callback)(void* pdata, UINT tick);
 } timer_data;
 
+/**
+ * tick: 单位：100纳秒 == 1 节拍
+ */
 typedef struct {
-    MMRESULT id;
-    UINT res;
-    UINT tick;
-    timer_data td[MMTIME_MAX_SIZE];
+    MMRESULT         id;
+    UINT             res;
+    unsigned __int64 tick;
+    timer_data       td[MMTIME_MAX_SIZE];
 } timer_server;
 
-#endif  /*  MMTIMER_H_ */
+#endif /*  MMTIMER_H_ */
